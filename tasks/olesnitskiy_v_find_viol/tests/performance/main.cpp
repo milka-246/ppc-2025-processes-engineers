@@ -11,7 +11,7 @@ class OlesnitskiyVFindViolPerfTests : public ppc::util::BaseRunPerfTests<InType,
   InType input_data_;
 
   void SetUp() override {
-    const size_t vector_size = 10000000;
+    const size_t vector_size = 90000000;
     std::vector<double> vector(vector_size);
 
     for (size_t i = 0; i < vector_size; i++) {
