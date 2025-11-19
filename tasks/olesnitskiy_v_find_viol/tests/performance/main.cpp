@@ -7,16 +7,21 @@
 
 namespace olesnitskiy_v_find_viol {
 
-class ExampleRunPerfTestProcesses : public ppc::util::BaseRunPerfTests<InType, OutType> {
-  const int kCount_ = 100;
-  InType input_data_{};
+class OlesnitskiyVFindViolPerfTests : public ppc::util::BaseRunPerfTests<InType, OutType> {
+  InType input_data_;
 
   void SetUp() override {
-    input_data_ = kCount_;
+    const size_t vector_size = 10000000;
+    std::vector<double> vector(vector_size);
+
+    for (size_t i = 0; i < vector_size; i++) {
+      vector[i] = static_cast<double>(i % 1000) + ((i & 1) == 0 ? 1.0 : -1.0);
+    }
+    input_data_ = vector;
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
-    return input_data_ == output_data;
+    return output_data >= 0 && static_cast<size_t>(output_data) <= input_data_.size();
   }
 
   InType GetTestInputData() final {
@@ -24,17 +29,17 @@ class ExampleRunPerfTestProcesses : public ppc::util::BaseRunPerfTests<InType, O
   }
 };
 
-TEST_P(ExampleRunPerfTestProcesses, RunPerfModes) {
+TEST_P(OlesnitskiyVFindViolPerfTests, RunPerfModes) {
   ExecuteTest(GetParam());
 }
 
-const auto kAllPerfTasks =
-    ppc::util::MakeAllPerfTasks<InType, OlesnitskiyVFindViolMPI, OlesnitskiyVFindViolSEQ>(PPC_SETTINGS_olesnitskiy_v_find_viol);
+const auto kAllPerfTasks = ppc::util::MakeAllPerfTasks<InType, OlesnitskiyVFindViolMPI, OlesnitskiyVFindViolSEQ>(
+    PPC_SETTINGS_olesnitskiy_v_find_viol);
 
 const auto kGtestValues = ppc::util::TupleToGTestValues(kAllPerfTasks);
 
-const auto kPerfTestName = ExampleRunPerfTestProcesses::CustomPerfTestName;
+const auto kPerfTestName = OlesnitskiyVFindViolPerfTests::CustomPerfTestName;
 
-INSTANTIATE_TEST_SUITE_P(RunModeTests, ExampleRunPerfTestProcesses, kGtestValues, kPerfTestName);
+INSTANTIATE_TEST_SUITE_P(RunModeTests, OlesnitskiyVFindViolPerfTests, kGtestValues, kPerfTestName);
 
 }  // namespace olesnitskiy_v_find_viol

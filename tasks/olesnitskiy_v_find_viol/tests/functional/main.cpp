@@ -20,39 +20,29 @@
 
 namespace olesnitskiy_v_find_viol {
 
-class OlesnitskiyVRunFuncTestsProcesses : public ppc::util::BaseRunFuncTests<InType, OutType, TestType> {
+class OlesnitskiyVFindViolFuncTests : public ppc::util::BaseRunFuncTests<InType, OutType, TestType> {
  public:
   static std::string PrintTestParam(const TestType &test_param) {
-    return std::to_string(std::get<0>(test_param)) + "_" + std::get<1>(test_param);
+    return std::get<2>(test_param);
   }
 
  protected:
   void SetUp() override {
-    int width = -1;
-    int height = -1;
-    int channels = -1;
-    std::vector<uint8_t> img;
-    // Read image in RGB to ensure consistent channel count
-    {
-      std::string abs_path = ppc::util::GetAbsoluteTaskPath(PPC_ID_olesnitskiy_v_find_viol, "pic.jpg");
-      auto *data = stbi_load(abs_path.c_str(), &width, &height, &channels, STBI_rgb);
-      if (data == nullptr) {
-        throw std::runtime_error("Failed to load image: " + std::string(stbi_failure_reason()));
-      }
-      channels = STBI_rgb;
-      img = std::vector<uint8_t>(data, data + (static_cast<ptrdiff_t>(width * height * channels)));
-      stbi_image_free(data);
-      if (std::cmp_not_equal(width, height)) {
-        throw std::runtime_error("width != height: ");
-      }
-    }
-
     TestType params = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
-    input_data_ = width - height + std::min(std::accumulate(img.begin(), img.end(), 0), channels);
+    input_data_ = std::get<0>(params);
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
-    return (input_data_ == output_data);
+    const auto &vector = input_data_;
+
+    int expected_violations = 0;
+    for (size_t i = 0; i + 1 < vector.size(); ++i) {
+      if (vector[i] > vector[i + 1]) {
+        ++expected_violations;
+      }
+    }
+
+    return output_data == expected_violations;
   }
 
   InType GetTestInputData() final {
@@ -60,26 +50,34 @@ class OlesnitskiyVRunFuncTestsProcesses : public ppc::util::BaseRunFuncTests<InT
   }
 
  private:
-  InType input_data_ = 0;
+  InType input_data_;
 };
 
 namespace {
 
-TEST_P(OlesnitskiyVRunFuncTestsProcesses, MatmulFromPic) {
+TEST_P(OlesnitskiyVFindViolFuncTests, FindViolations) {
   ExecuteTest(GetParam());
 }
 
-const std::array<TestType, 3> kTestParam = {std::make_tuple(3, "3"), std::make_tuple(5, "5"), std::make_tuple(7, "7")};
+const std::array<TestType, 8> kTestParam = {
+    std::make_tuple(std::vector<double>{}, 0, "empty"),
+    std::make_tuple(std::vector<double>{1.0}, 0, "single"),
+    std::make_tuple(std::vector<double>{1.0, 2.0, 3.0, 4.0, 5.0}, 0, "sorted_asc"),
+    std::make_tuple(std::vector<double>{5.0, 4.0, 3.0, 2.0, 1.0}, 4, "sorted_desc"),
+    std::make_tuple(std::vector<double>{1.0, 3.0, 2.0, 5.0, 4.0}, 2, "mixed"),
+    std::make_tuple(std::vector<double>{1.0, 2.0, 2.0, 3.0, 3.0}, 0, "duplicates"),
+    std::make_tuple(std::vector<double>{1.0, 1.0 + 1e-11, 1.0 + 1e-9}, 0, "precision_low"),
+    std::make_tuple(std::vector<double>{1.0, 1.0 - 1e-8, 1.0 - 2e-8}, 2, "precision_high")};
 
-const auto kTestTasksList =
-    std::tuple_cat(ppc::util::AddFuncTask<OlesnitskiyVFindViolMPI, InType>(kTestParam, PPC_SETTINGS_olesnitskiy_v_find_viol),
-                   ppc::util::AddFuncTask<OlesnitskiyVFindViolSEQ, InType>(kTestParam, PPC_SETTINGS_olesnitskiy_v_find_viol));
+const auto kTestTasksList = std::tuple_cat(
+    ppc::util::AddFuncTask<OlesnitskiyVFindViolMPI, InType>(kTestParam, PPC_SETTINGS_olesnitskiy_v_find_viol),
+    ppc::util::AddFuncTask<OlesnitskiyVFindViolSEQ, InType>(kTestParam, PPC_SETTINGS_olesnitskiy_v_find_viol));
 
 const auto kGtestValues = ppc::util::ExpandToValues(kTestTasksList);
 
-const auto kPerfTestName = OlesnitskiyVRunFuncTestsProcesses::PrintFuncTestName<OlesnitskiyVRunFuncTestsProcesses>;
+const auto kPerfTestName = OlesnitskiyVFindViolFuncTests::PrintFuncTestName<OlesnitskiyVFindViolFuncTests>;
 
-INSTANTIATE_TEST_SUITE_P(PicMatrixTests, OlesnitskiyVRunFuncTestsProcesses, kGtestValues, kPerfTestName);
+INSTANTIATE_TEST_SUITE_P(ViolationTests, OlesnitskiyVFindViolFuncTests, kGtestValues, kPerfTestName);
 
 }  // namespace
 

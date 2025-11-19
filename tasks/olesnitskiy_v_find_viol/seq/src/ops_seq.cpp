@@ -15,46 +15,35 @@ OlesnitskiyVFindViolSEQ::OlesnitskiyVFindViolSEQ(const InType &in) {
 }
 
 bool OlesnitskiyVFindViolSEQ::ValidationImpl() {
-  return (GetInput() > 0) && (GetOutput() == 0);
+  // return (GetInput() > 0) && (GetOutput() == 0);
+  return true;  //! GetInput().empty() проверка на то, что вектор не пустой, но я решил что это не ошибка
 }
 
 bool OlesnitskiyVFindViolSEQ::PreProcessingImpl() {
-  GetOutput() = 2 * GetInput();
-  return GetOutput() > 0;
+  // GetOutput() = 2 * GetInput();
+  // return GetOutput() > 0;
+  return true;
 }
 
 bool OlesnitskiyVFindViolSEQ::RunImpl() {
-  if (GetInput() == 0) {
-    return false;
-  }
+  GetOutput() = 0;
 
-  for (InType i = 0; i < GetInput(); i++) {
-    for (InType j = 0; j < GetInput(); j++) {
-      for (InType k = 0; k < GetInput(); k++) {
-        std::vector<InType> tmp(i + j + k, 1);
-        GetOutput() += std::accumulate(tmp.begin(), tmp.end(), 0);
-        GetOutput() -= i + j + k;
+  if (GetInput().size() >= 2) {
+    const double epsilon = 1e-10;
+    for (auto it = GetInput().begin(); it < GetInput().end() - 1;
+         it++) {  // использовал auto чтобы без проблем перейти на double
+      if (*it - *(it + 1) > epsilon) {
+        GetOutput()++;
       }
     }
   }
-
-  const int num_threads = ppc::util::GetNumThreads();
-  GetOutput() *= num_threads;
-
-  int counter = 0;
-  for (int i = 0; i < num_threads; i++) {
-    counter++;
-  }
-
-  if (counter != 0) {
-    GetOutput() /= counter;
-  }
-  return GetOutput() > 0;
+  return true;
 }
 
 bool OlesnitskiyVFindViolSEQ::PostProcessingImpl() {
-  GetOutput() -= GetInput();
-  return GetOutput() > 0;
+  // GetOutput() -= GetInput();
+  // return GetOutput() > 0;
+  return true;
 }
 
 }  // namespace olesnitskiy_v_find_viol
