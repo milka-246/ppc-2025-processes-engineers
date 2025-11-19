@@ -17,56 +17,111 @@ OlesnitskiyVFindViolMPI::OlesnitskiyVFindViolMPI(const InType &in) {
 }
 
 bool OlesnitskiyVFindViolMPI::ValidationImpl() {
-  return (GetInput() > 0) && (GetOutput() == 0);
+  return true;
 }
 
 bool OlesnitskiyVFindViolMPI::PreProcessingImpl() {
-  GetOutput() = 2 * GetInput();
-  return GetOutput() > 0;
+  return true;
 }
 
 bool OlesnitskiyVFindViolMPI::RunImpl() {
-  auto input = GetInput();
-  if (input == 0) {
-    return false;
+  if (GetInput().size() < 2) {
+    GetOutput() = 0;
+    return true;
   }
 
-  for (InType i = 0; i < GetInput(); i++) {
-    for (InType j = 0; j < GetInput(); j++) {
-      for (InType k = 0; k < GetInput(); k++) {
-        std::vector<InType> tmp(i + j + k, 1);
-        GetOutput() += std::accumulate(tmp.begin(), tmp.end(), 0);
-        GetOutput() -= i + j + k;
+  int world_size, world_rank;
+  MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+  MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+
+  const auto &input_data = GetInput();
+  int total_size = static_cast<int>(input_data.size());
+
+  if (total_size <= world_size) {
+    int viol = 0;
+    if (world_rank == 0) {
+      const double epsilon = 1e-10;
+      for (size_t i = 0; i < input_data.size() - 1; i++) {
+        if (input_data[i] - input_data[i + 1] > epsilon) {
+          viol++;
+        }
+      }
+    }
+    MPI_Bcast(&viol, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    GetOutput() = viol;
+    return true;
+  }
+
+  std::vector<int> sendcounts(world_size, 0);
+  std::vector<int> displs(world_size, 0);
+  std::vector<double> expanded_data;
+  if (world_rank == 0) {
+    int base_chunk = total_size / world_size;
+    int remainder = total_size % world_size;
+    int current_displ = 0;
+    for (int i = 0; i < world_size; i++) {
+      sendcounts[i] = base_chunk + (i < remainder ? 1 : 0);
+      displs[i] = current_displ;
+      current_displ += sendcounts[i];
+    }
+    expanded_data.resize(total_size + world_size - 1);
+    int idx = 0;
+    for (int proc = 0; proc < world_size; proc++) {
+      int start = displs[proc];
+      int end = start + sendcounts[proc];
+
+      for (int i = start; i < end; i++) {
+        expanded_data[idx++] = input_data[i];
+      }
+
+      if (proc < world_size - 1 && end < total_size) {
+        expanded_data[idx++] = input_data[end - 1];
+      }
+      if (proc != 0) {
+        sendcounts[proc]++;
+      }
+    }
+
+    displs[0] = 0;
+    for (int i = 1; i < world_size; i++) {
+      displs[i] = displs[i - 1] + sendcounts[i - 1];
+    }
+  }
+
+  MPI_Bcast(sendcounts.data(), world_size, MPI_INT, 0, MPI_COMM_WORLD);
+  MPI_Bcast(displs.data(), world_size, MPI_INT, 0, MPI_COMM_WORLD);
+
+  int my_chunk_size = sendcounts[world_rank];
+  if (my_chunk_size < 0) {
+    // Обработка ошибки
+    GetOutput() = 0;
+    return true;
+  }
+
+  std::vector<double> local_data(my_chunk_size);
+
+  // Распределение данных
+  MPI_Scatterv(expanded_data.data(), sendcounts.data(), displs.data(), MPI_DOUBLE, local_data.data(), my_chunk_size,
+               MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+  // Локальные вычисления
+  int local_viol = 0;
+  const double epsilon = 1e-10;
+
+  if (my_chunk_size > 1) {
+    for (int i = 0; i < my_chunk_size - 1; i++) {
+      if (local_data[i] - local_data[i + 1] > epsilon) {
+        local_viol++;
       }
     }
   }
-
-  const int num_threads = ppc::util::GetNumThreads();
-  GetOutput() *= num_threads;
-
-  int rank = 0;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-
-  if (rank == 0) {
-    GetOutput() /= num_threads;
-  } else {
-    int counter = 0;
-    for (int i = 0; i < num_threads; i++) {
-      counter++;
-    }
-
-    if (counter != 0) {
-      GetOutput() /= counter;
-    }
-  }
-
-  MPI_Barrier(MPI_COMM_WORLD);
-  return GetOutput() > 0;
+  int total_viol;
+  MPI_Allreduce(&local_viol, &total_viol, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+  GetOutput() = total_viol;
+  return true;
 }
-
 bool OlesnitskiyVFindViolMPI::PostProcessingImpl() {
-  GetOutput() -= GetInput();
-  return GetOutput() > 0;
+  return true;
 }
 
 }  // namespace olesnitskiy_v_find_viol
