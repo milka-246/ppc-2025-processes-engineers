@@ -1,5 +1,9 @@
 #include <gtest/gtest.h>
 
+#include <array>
+#include <cstddef>
+#include <string>
+#include <tuple>
 #include <vector>
 
 #include "olesnitskiy_v_find_viol/common/include/common.hpp"
