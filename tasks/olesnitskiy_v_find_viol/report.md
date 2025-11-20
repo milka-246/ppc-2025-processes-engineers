@@ -39,50 +39,53 @@ int my_end = my_start + base_chunk + (world_rank < remainder ? 1 : 0);
 ## 5. Implementation Details
 -  Code structure (files, key classes/functions): функции ValidationImpl, PreProcessingImpl, PostProcessingImpl по сути не используются - всегда возвращается true. Вся логика содержится в функции:
  ```cpp
-bool  OlesnitskiyVFindViolMPI::RunImpl() {
-if (GetInput().size() <  2) {
-GetOutput() =  0;
-return  true;
-}
-const  auto  &input_data =  GetInput();
-int total_size =  input_data.size();
-const  double epsilon =  1e-10;
-int world_size, world_rank;
-MPI_Comm_size(MPI_COMM_WORLD, &world_size);
-MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
-if (total_size <= world_size) {
-int viol =  0;
-if (world_rank ==  0) {
-const  double epsilon =  1e-10;
-for (size_t i =  0; i <  input_data.size() -  1; i++) {
-if (input_data[i] -  input_data[i +  1] > epsilon) {
-viol++;
-}
-}
-}
-MPI_Bcast(&viol, 1, MPI_INT, 0, MPI_COMM_WORLD);
-GetOutput() = viol;
-return  true;
-}
-int base_chunk = total_size / world_size;
-int remainder = total_size % world_size;
-int my_start = world_rank * base_chunk +  std::min(world_rank, remainder);
-int my_end = my_start + base_chunk + (world_rank < remainder ?  1  :  0);
-int local_viol =  0;
-for (int i = my_start; i < my_end -  1; i++) {
-if (input_data[i] -  input_data[i +  1] > epsilon) {
-local_viol++;
-}
-}
-if (world_rank >  0) {
-if (input_data[my_start -  1] -  input_data[my_start] > epsilon) {
-local_viol++;
-}
-}
-int total_viol;
-MPI_Allreduce(&local_viol, &total_viol, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-GetOutput() = total_viol;
-return  true;
+bool OlesnitskiyVFindViolMPI::RunImpl() {
+  if (GetInput().size() < 2) {
+    GetOutput() = 0;
+    return true;
+  }
+  const auto &input_data = GetInput();
+  const double epsilon = 1e-10;
+  int world_size = 0;
+  int world_rank = 0;
+  MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+  MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+  int total_size = static_cast<int>(GetInput().size());
+  MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+  MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+  if (total_size <= world_size) {
+    int viol = 0;
+    if (world_rank == 0) {
+      for (int i = 0; i < static_cast<int>(input_data.size()) - 1; i++) {
+        if (input_data[i] - input_data[i + 1] > epsilon) {
+          viol++;
+        }
+      }
+    }
+    MPI_Bcast(&viol, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    GetOutput() = viol;
+    return true;
+  }
+  int base_chunk = total_size / world_size;
+  int remainder = total_size % world_size;
+  int my_start = 0;
+  my_start = (world_rank * base_chunk) + std::min(world_rank, remainder);
+  int my_end = my_start + base_chunk + (world_rank < remainder ? 1 : 0);
+  int local_viol = 0;
+  for (int i = my_start; i < my_end - 1; i++) {
+    if (input_data[i] - input_data[i + 1] > epsilon) {
+      local_viol++;
+    }
+  }
+  if (world_rank > 0) {
+    if (input_data[my_start - 1] - input_data[my_start] > epsilon) {
+      local_viol++;
+    }
+  }
+  int total_viol = 0;
+  MPI_Allreduce(&local_viol, &total_viol, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+  GetOutput() = total_viol;
+  return true;
 }
 ```
 -  Important assumptions and corner cases: если на вход подаётся вектор длины меньше 2 - это не считается ошибкой, при этом сразу выдаётся ответ 0.
@@ -105,19 +108,21 @@ return  true;
 ## 7. Results and Discussion
 
 ### 7.1 Correctness
-Корректность работы была проверена с помощью комплексного модульного тестирования с использованием фреймворка Google Test. Набор тестов включал 16 тестовых случаев, охватывающих различные сценарии:
+Корректность работы была проверена с помощью комплексного модульного тестирования с использованием фреймворка Google Test. Набор тестов включал 20 тестовых случаев, охватывающих различные сценарии:
 ```
-const  std::array<TestType, 8> kTestParam = {
-std::make_tuple(std::vector<double>{}, 0, "empty"),
-std::make_tuple(std::vector<double>{1.0}, 0, "single"),
-std::make_tuple(std::vector<double>{1.0, 2.0, 3.0, 4.0, 5.0}, 0, "sorted_asc"),
-std::make_tuple(std::vector<double>{5.0, 4.0, 3.0, 2.0, 1.0}, 4, "sorted_desc"),
-std::make_tuple(std::vector<double>{1.0, 3.0, 2.0, 5.0, 4.0}, 2, "mixed"),
-std::make_tuple(std::vector<double>{1.0, 2.0, 2.0, 3.0, 3.0}, 0, "duplicates"),
-std::make_tuple(std::vector<double>{1.0, 1.0  +  1e-11, 1.0  +  1e-9}, 0, "precision_low"),
-std::make_tuple(std::vector<double>{1.0, 1.0  -  1e-8, 1.0  -  2e-8}, 2, "precision_high")};
+const std::array<TestType, 10> kTestParam = {
+    std::make_tuple(std::vector<double>{}, 0, "empty"),
+    std::make_tuple(std::vector<double>{1.0}, 0, "single"),
+    std::make_tuple(std::vector<double>{1.0, 2.0, 3.0, 4.0, 5.0}, 0, "sorted_asc"),
+    std::make_tuple(std::vector<double>{5.0, 4.0, 3.0, 2.0, 1.0}, 4, "sorted_desc"),
+    std::make_tuple(std::vector<double>{1.0, 3.0, 2.0, 5.0, 4.0}, 2, "mixed"),
+    std::make_tuple(std::vector<double>{1.0, 2.0, 2.0, 3.0, 3.0}, 0, "duplicates"),
+    std::make_tuple(std::vector<double>{1.0, 1.0 + 1e-11, 1.0 + 1e-9}, 0, "precision_low"),
+    std::make_tuple(std::vector<double>{1.0, 1.0 - 1e-8, 1.0 - 2e-8}, 2, "precision_high"),
+    std::make_tuple(std::vector<double>{1.0, 2.0}, 1, "two_numbers"),
+    std::make_tuple(std::vector<double>{3.0, 1.0, 2.0}, 1, "three_numbers")};
 ```
-Все тесты прошли успешно (16/16) со временем выполнения 0 мс на тест, что подтверждает правильность подсчета нарушений для обеих реализаций: последовательной (SEQ) и MPI.
+Все тесты прошли успешно (20/20) со временем выполнения 0 мс на тест, что подтверждает правильность подсчета нарушений для обеих реализаций: последовательной (SEQ) и MPI.
 
 
 ### 7.2 Performance

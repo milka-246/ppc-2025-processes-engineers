@@ -30,16 +30,18 @@ bool OlesnitskiyVFindViolMPI::RunImpl() {
     return true;
   }
   const auto &input_data = GetInput();
-  int total_size = input_data.size();
   const double epsilon = 1e-10;
-  int world_size, world_rank;
+  int world_size = 0;
+  int world_rank = 0;
+  MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+  MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+  int total_size = static_cast<int>(GetInput().size());
   MPI_Comm_size(MPI_COMM_WORLD, &world_size);
   MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
   if (total_size <= world_size) {
     int viol = 0;
     if (world_rank == 0) {
-      const double epsilon = 1e-10;
-      for (size_t i = 0; i < input_data.size() - 1; i++) {
+      for (int i = 0; i < static_cast<int>(input_data.size()) - 1; i++) {
         if (input_data[i] - input_data[i + 1] > epsilon) {
           viol++;
         }
@@ -51,7 +53,8 @@ bool OlesnitskiyVFindViolMPI::RunImpl() {
   }
   int base_chunk = total_size / world_size;
   int remainder = total_size % world_size;
-  int my_start = world_rank * base_chunk + std::min(world_rank, remainder);
+  int my_start = 0;
+  my_start = (world_rank * base_chunk) + std::min(world_rank, remainder);
   int my_end = my_start + base_chunk + (world_rank < remainder ? 1 : 0);
   int local_viol = 0;
   for (int i = my_start; i < my_end - 1; i++) {
@@ -64,7 +67,7 @@ bool OlesnitskiyVFindViolMPI::RunImpl() {
       local_viol++;
     }
   }
-  int total_viol;
+  int total_viol = 0;
   MPI_Allreduce(&local_viol, &total_viol, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
   GetOutput() = total_viol;
   return true;
