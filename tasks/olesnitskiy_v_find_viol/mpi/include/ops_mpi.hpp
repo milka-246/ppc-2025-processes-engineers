@@ -17,6 +17,7 @@ class OlesnitskiyVFindViolMPI : public BaseTask {
   bool PreProcessingImpl() override;
   bool RunImpl() override;
   bool PostProcessingImpl() override;
+  [[nodiscard]] static int CountViolation(double current, double next);
 };
 
 }  // namespace olesnitskiy_v_find_viol
