@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 
+#include <vector>
+
 #include "olesnitskiy_v_find_viol/common/include/common.hpp"
 #include "olesnitskiy_v_find_viol/mpi/include/ops_mpi.hpp"
 #include "olesnitskiy_v_find_viol/seq/include/ops_seq.hpp"
@@ -21,7 +23,7 @@ class OlesnitskiyVFindViolPerfTests : public ppc::util::BaseRunPerfTests<InType,
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
-    return output_data >= 0 && static_cast<int>(output_data) <= static_cast<int>(input_data_.size());
+    return output_data >= 0 && output_data <= static_cast<OutType>(input_data_.size());
   }
 
   InType GetTestInputData() final {

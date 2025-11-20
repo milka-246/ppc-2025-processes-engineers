@@ -45,22 +45,18 @@ bool OlesnitskiyVFindViolMPI::RunImpl() {
     return true;
   }
   const auto &input_data = GetInput();
-  const double epsilon = 1e-10;
   int world_size = 0;
   int world_rank = 0;
   MPI_Comm_size(MPI_COMM_WORLD, &world_size);
   MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
   int total_size = static_cast<int>(GetInput().size());
-  MPI_Comm_size(MPI_COMM_WORLD, &world_size);
-  MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
   if (total_size <= world_size) {
     int viol = 0;
-    if (world_rank == 0) {
+    if(world_rank == 0)
+    {
       for (int i = 0; i < static_cast<int>(input_data.size()) - 1; i++) {
-        if (input_data[i] - input_data[i + 1] > epsilon) {
-          viol++;
+        viol+= CountViolation(input_data[i], input_data[i + 1]);
         }
-      }
     }
     MPI_Bcast(&viol, 1, MPI_INT, 0, MPI_COMM_WORLD);
     GetOutput() = viol;
@@ -73,19 +69,20 @@ bool OlesnitskiyVFindViolMPI::RunImpl() {
   int my_end = my_start + base_chunk + (world_rank < remainder ? 1 : 0);
   int local_viol = 0;
   for (int i = my_start; i < my_end - 1; i++) {
-    if (input_data[i] - input_data[i + 1] > epsilon) {
-      local_viol++;
-    }
+      local_viol+= CountViolation(input_data[i], input_data[i + 1]);
   }
   if (world_rank > 0) {
-    if (input_data[my_start - 1] - input_data[my_start] > epsilon) {
-      local_viol++;
-    }
+      local_viol+= CountViolation(input_data[my_start - 1], input_data[my_start]);
   }
   int total_viol = 0;
   MPI_Allreduce(&local_viol, &total_viol, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
   GetOutput() = total_viol;
   return true;
+}
+
+int OlesnitskiyVFindViolMPI::CountViolation(double current, double next) const {
+  const double epsilon = 1e-10;
+  return (current - next > epsilon) ? 1 : 0;
 }
 ```
 -  Important assumptions and corner cases: если на вход подаётся вектор длины меньше 2 - это не считается ошибкой, при этом сразу выдаётся ответ 0.

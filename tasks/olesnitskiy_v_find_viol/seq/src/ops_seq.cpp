@@ -1,10 +1,8 @@
 #include "olesnitskiy_v_find_viol/seq/include/ops_seq.hpp"
 
-#include <numeric>
 #include <vector>
 
 #include "olesnitskiy_v_find_viol/common/include/common.hpp"
-#include "util/include/util.hpp"
 
 namespace olesnitskiy_v_find_viol {
 
