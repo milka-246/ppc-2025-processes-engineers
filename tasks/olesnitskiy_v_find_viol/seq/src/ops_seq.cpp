@@ -13,13 +13,10 @@ OlesnitskiyVFindViolSEQ::OlesnitskiyVFindViolSEQ(const InType &in) {
 }
 
 bool OlesnitskiyVFindViolSEQ::ValidationImpl() {
-  // return (GetInput() > 0) && (GetOutput() == 0);
   return true;  //! GetInput().empty() проверка на то, что вектор не пустой, но я решил что это не ошибка
 }
 
 bool OlesnitskiyVFindViolSEQ::PreProcessingImpl() {
-  // GetOutput() = 2 * GetInput();
-  // return GetOutput() > 0;
   return true;
 }
 
@@ -39,8 +36,6 @@ bool OlesnitskiyVFindViolSEQ::RunImpl() {
 }
 
 bool OlesnitskiyVFindViolSEQ::PostProcessingImpl() {
-  // GetOutput() -= GetInput();
-  // return GetOutput() > 0;
   return true;
 }
 

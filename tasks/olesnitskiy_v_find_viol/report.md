@@ -29,7 +29,7 @@ int my_end = my_start + base_chunk + (world_rank < remainder ? 1 : 0);
  - Rank roles:
 	 - Process 0:
 		 - Обработка маленьких массивов
-		 - Рассылка данных через MPI_Bcast
+		 - Рассылка данных через MPI_Scatterv и MPI_Bcast
 	 -  All processes:
 		 - Локальный подсчёт нарушений в своём блоке
 		 - Проверка граничных элементов (кроме process 0)
@@ -44,39 +44,67 @@ bool OlesnitskiyVFindViolMPI::RunImpl() {
     GetOutput() = 0;
     return true;
   }
+  
   const auto &input_data = GetInput();
   int world_size = 0;
   int world_rank = 0;
   MPI_Comm_size(MPI_COMM_WORLD, &world_size);
   MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+  
   int total_size = static_cast<int>(GetInput().size());
+  
   if (total_size <= world_size) {
-    int viol = 0;
-    if(world_rank == 0)
-    {
-      for (int i = 0; i < static_cast<int>(input_data.size()) - 1; i++) {
-        viol+= CountViolation(input_data[i], input_data[i + 1]);
-        }
-    }
-    MPI_Bcast(&viol, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    GetOutput() = viol;
-    return true;
+    return RunSequentialCase();
   }
   int base_chunk = total_size / world_size;
   int remainder = total_size % world_size;
-  int my_start = 0;
-  my_start = (world_rank * base_chunk) + std::min(world_rank, remainder);
-  int my_end = my_start + base_chunk + (world_rank < remainder ? 1 : 0);
-  int local_viol = 0;
-  for (int i = my_start; i < my_end - 1; i++) {
-      local_viol+= CountViolation(input_data[i], input_data[i + 1]);
+  std::vector<int> send_counts(world_size);
+  std::vector<int> displacements(world_size);
+  int displacement = 0;
+  for (int i = 0; i < world_size; i++) {
+    send_counts[i] = base_chunk + (i < remainder ? 1 : 0);
+    displacements[i] = displacement;
+    displacement += send_counts[i];
   }
+  int my_chunk_size = send_counts[world_rank];
+  std::vector<double> local_data(my_chunk_size);
+  MPI_Scatterv(input_data.data(), send_counts.data(), displacements.data(), MPI_DOUBLE, local_data.data(), my_chunk_size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+  std::vector<double> prev_elements(world_size, 0.0);
+  if (world_rank == 0) {
+    for (int i = 1; i < world_size; i++) {
+      int prev_block_end = displacements[i] - 1;
+      prev_elements[i] = input_data[prev_block_end];
+    }
+  }
+  double my_prev_element = 0.0;
+  MPI_Scatter(prev_elements.data(), 1, MPI_DOUBLE, &my_prev_element, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+  int local_viol = 0;
   if (world_rank > 0) {
-      local_viol+= CountViolation(input_data[my_start - 1], input_data[my_start]);
+    local_viol += CountViolation(my_prev_element, local_data[0]);
+  }
+  for (int i = 0; i < my_chunk_size - 1; i++) {
+    local_viol += CountViolation(local_data[i], local_data[i + 1]);
   }
   int total_viol = 0;
   MPI_Allreduce(&local_viol, &total_viol, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+  
   GetOutput() = total_viol;
+  return true;
+}
+
+bool OlesnitskiyVFindViolMPI::RunSequentialCase() {
+  const auto &input_data = GetInput();
+  int world_rank = 0;
+  MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+  
+  int viol = 0;
+  if (world_rank == 0) {
+    for (int i = 0; i < static_cast<int>(input_data.size()) - 1; i++) {
+      viol += CountViolation(input_data[i], input_data[i + 1]);
+    }
+  }
+  MPI_Bcast(&viol, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  GetOutput() = viol;
   return true;
 }
 
@@ -86,8 +114,7 @@ int OlesnitskiyVFindViolMPI::CountViolation(double current, double next) const {
 }
 ```
 -  Important assumptions and corner cases: если на вход подаётся вектор длины меньше 2 - это не считается ошибкой, при этом сразу выдаётся ответ 0.
--  Memory usage considerations: в изначальной реализации доступ к GetInput() имел только нулевой процесс, он же производил разбиение последующих элементов на блоки и последующую их рассылку. С целью уменьшить время работы программы я  от этого отказался и теперь у каждого процесса есть доступ к памяти GetInput(), однако работают они только со своим блоком и концом предыдущего блока.
-
+-  Memory usage considerations: Только процесс с рангом 0 имеет доступ к GetInput(). Он рассчитывает блоки какого размера будут отправлены каждому из процессов. А так же каждому процессу, кроме процесса с рангом 0, отправляет последний элемент предыдущего блока.
 ## 6. Experimental Setup
 -  Hardware/OS: CPU model, cores/threads, RAM, OS version:
 	- Модель ЦП: AMD Ryzen 5 5600H with Radeon Graphics
@@ -127,21 +154,14 @@ Present time, speedup and efficiency. Example table:
 
 | Mode        | Count | Time, s | Speedup | Efficiency |
 |-------------|-------|---------|---------|------------|
-| seq         | 1     |   0.0653056145 | 1.00    | N/A        |
-| seq         | 1     | 0.0653569698   | 1.00    | N/A        |
-| omp         | 4     | 0.0184350826   |   3.54  |   88.5%    |
-| omp         | 4     | 0.0184184014   |   3.55  |   88.8%    |
-Реализация MPI показывает стабильное ускорение около 3.545 по сравнению с последовательной версией. При этом оба режима (pipeline(выше) и task_run(ниже)) показывают практически идентичную производительность для каждой реализации.
-Эта задача показывает хороший параллелизм т.к. данные независимы между собой, узким местом препятствующим ещё большему разрыву между последовательной и параллельными версиями я бы указал разве что малое количество математических операций) 
-
+| seq         | 1     | 0.0643372536 | 1.00    | N/A        |
+| seq         | 1     | 0.0627815247   | 1.00    | N/A        |
+| mpi         | 4     | 0.2000729136   |   0.32  |   8.0%    |
+| mpi         | 4     | 0.1987726486   |   0.32  |   8.0%    |
 
 ## 8. Conclusions
-Summarize findings and limitations.
+Реализация MPI показывает замедление в 3 раза по сравнению с последовательной версией. При этом оба режима (pipeline(выше) и task_run(ниже)) показывают практически идентичную производительность для каждой реализации.
+Несмотря на то что задача может показывать хороший параллелизм. т.к. данные изначально независимы между собой. В параллельной реализации мы получаем замедление, т.к. доступ к данным имеет только один процесс, и уже он их распределяет между другими процессами - это создаёт дополнительные задержки. В этой задаче мало математических операций и поэтому выйгрыш от их более быстрого выполнения (за счет параллелизации) не перекрывает пройгрыша от рассылки данных.
 
 ## 9. References
 1. [Учебные материалы](https://disk.yandex.ru/d/NvHFyhOJCQU65w)
-
-## Appendix (Optional)
-```cpp
-// Short, readable code excerpts if needed
-```
