@@ -32,7 +32,7 @@ bool OlesnitskiyVFindViolMPI::RunSequentialCase() {
   const auto &input_data = GetInput();
   int world_rank = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
-  
+
   int viol = 0;
   if (world_rank == 0) {
     for (int i = 0; i < static_cast<int>(input_data.size()) - 1; i++) {
@@ -49,15 +49,15 @@ bool OlesnitskiyVFindViolMPI::RunImpl() {
     GetOutput() = 0;
     return true;
   }
-  
+
   const auto &input_data = GetInput();
   int world_size = 0;
   int world_rank = 0;
   MPI_Comm_size(MPI_COMM_WORLD, &world_size);
   MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
-  
+
   int total_size = static_cast<int>(GetInput().size());
-  
+
   if (total_size <= world_size) {
     return RunSequentialCase();
   }
@@ -73,7 +73,8 @@ bool OlesnitskiyVFindViolMPI::RunImpl() {
   }
   int my_chunk_size = send_counts[world_rank];
   std::vector<double> local_data(my_chunk_size);
-  MPI_Scatterv(input_data.data(), send_counts.data(), displacements.data(), MPI_DOUBLE, local_data.data(), my_chunk_size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+  MPI_Scatterv(input_data.data(), send_counts.data(), displacements.data(), MPI_DOUBLE, local_data.data(),
+               my_chunk_size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
   std::vector<double> prev_elements(world_size, 0.0);
   if (world_rank == 0) {
     for (int i = 1; i < world_size; i++) {
@@ -92,7 +93,7 @@ bool OlesnitskiyVFindViolMPI::RunImpl() {
   }
   int total_viol = 0;
   MPI_Allreduce(&local_viol, &total_viol, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-  
+
   GetOutput() = total_viol;
   return true;
 }

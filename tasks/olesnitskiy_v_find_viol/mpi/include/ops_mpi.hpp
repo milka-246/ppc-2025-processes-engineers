@@ -11,7 +11,7 @@ class OlesnitskiyVFindViolMPI : public BaseTask {
     return ppc::task::TypeOfTask::kMPI;
   }
   explicit OlesnitskiyVFindViolMPI(const InType &in);
-  bool RunSequentialCase(); 
+  bool RunSequentialCase();
 
  private:
   bool ValidationImpl() override;
