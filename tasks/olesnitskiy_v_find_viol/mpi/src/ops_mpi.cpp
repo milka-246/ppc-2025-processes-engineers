@@ -2,7 +2,6 @@
 
 #include <mpi.h>
 
-#include <algorithm>
 #include <vector>
 
 #include "olesnitskiy_v_find_viol/common/include/common.hpp"
