@@ -1,5 +1,10 @@
 #include "olesnitskiy_v_striped_matrix_multiplication/seq/include/ops_seq.hpp"
 
+#include <algorithm>
+#include <cstddef>
+#include <tuple>
+#include <vector>
+
 #include "olesnitskiy_v_striped_matrix_multiplication/common/include/common.hpp"
 #include "util/include/util.hpp"
 

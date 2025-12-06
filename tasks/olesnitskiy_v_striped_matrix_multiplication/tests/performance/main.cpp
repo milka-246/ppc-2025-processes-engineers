@@ -1,5 +1,10 @@
 #include <gtest/gtest.h>
 
+#include <cstddef>
+#include <tuple>
+#include <utility>
+#include <vector>
+
 #include "olesnitskiy_v_striped_matrix_multiplication/common/include/common.hpp"
 #include "olesnitskiy_v_striped_matrix_multiplication/mpi/include/ops_mpi.hpp"
 #include "olesnitskiy_v_striped_matrix_multiplication/seq/include/ops_seq.hpp"
