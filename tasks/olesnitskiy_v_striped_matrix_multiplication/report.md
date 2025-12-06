@@ -19,7 +19,7 @@
 
 **Ограничения**:
 
--   cols_A == rows_B (матрицы совместимы для умножения)
+-   cols_a == rows_b (матрицы совместимы для умножения)
     
 -   Элементы матриц - числа с плавающей точкой двойной точности (double)
     
@@ -28,21 +28,21 @@
 ## 3. Baseline Algorithm (Sequential)
 Базовый последовательный алгоритм:
 ```cpp
-for (size_t i = 0; i < rows_A; ++i) {
-    for (size_t j = 0; j < cols_B; ++j) {
+for (size_t i = 0; i < rows_a; ++i) {
+    for (size_t j = 0; j < cols_b; ++j) {
         double sum = 0.0;
-        for (size_t k = 0; k < cols_A; ++k) {
-            sum += A[i * cols_A + k] * B[k * cols_B + j];
+        for (size_t k = 0; k < cols_a; ++k) {
+            sum += A[(i * cols_a) + k] * B[(k * cols_b) + j];
         }
-        C[i * cols_B + j] = sum;
+        C[i * cols_b + j] = sum;
     }
 }
 ```
 **Оптимизированная версия с блочным разбиением** (striped):
 ```cpp
 if (num_stripes_ > 1) {
-    size_t rows_per_stripe = rows_A / num_stripes_;
-    size_t cols_per_stripe = cols_B / num_stripes_;
+    size_t rows_per_stripe = rows_a / num_stripes_;
+    size_t cols_per_stripe = cols_b / num_stripes_;
     for (int stripe_a = 0; stripe_a < num_stripes_; ++stripe_a) {
         size_t start_row_a = stripe_a * rows_per_stripe;
         for (int stripe_b = 0; stripe_b < num_stripes_; ++stripe_b) {
@@ -52,11 +52,11 @@ if (num_stripes_ > 1) {
                 for (size_t j = 0; j < cols_per_stripe; ++j) {
                     size_t col_idx = start_col_b + j;
                     double sum = 0.0;
-                    for (size_t k = 0; k < cols_A; ++k) {
-                        sum += A[row_idx * cols_A + k] * 
-                               B[k * cols_B + col_idx];
+                    for (size_t k = 0; k < cols_a; ++k) {
+                        sum += A[row_idx * cols_a + k] * 
+                               B[k * cols_b + col_idx];
                     }
-                    C[row_idx * cols_B + col_idx] = sum;
+                    C[row_idx * cols_b + col_idx] = sum;
                 }
             }
         }
@@ -116,13 +116,13 @@ if rank == 0:
     read_matrices(A, B)
     calculate_row_distribution()
 
-MPI_Scatterv(A, local_A)          # Распределение полос A
+MPI_Scatterv(A, local_a)          # Распределение полос A
 MPI_Bcast(B)                      # Рассылка всей матрицы B
 
 # Локальное умножение
 for i in local_rows:
-    for j in cols_B:
-        C_local[i][j] = Σ_k(local_A[i][k] * B[k][j])
+    for j in cols_b:
+        C_local[i][j] = Σ_k(local_a[i][k] * B[k][j])
 
 MPI_Gatherv(C_local, C)          # Сбор результатов
 MPI_Bcast(C)                     # Рассылка результата всем
@@ -338,7 +338,7 @@ Present time, speedup and efficiency. Example table:
 ## Appendix
 ```cpp
 // Ключевой фрагмент: распределение данных
-std::vector<int> calculate_counts(int total, int num_parts) {
+std::vector<int> CalculateCounts(int total, int num_parts) {
 std::vector<int> counts(num_parts, 0);
     int base = total / num_parts;
     int remainder = total % num_parts;
