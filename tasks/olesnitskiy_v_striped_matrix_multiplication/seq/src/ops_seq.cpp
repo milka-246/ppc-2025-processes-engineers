@@ -9,20 +9,20 @@
 
 namespace olesnitskiy_v_striped_matrix_multiplication {
 OlesnitskiyVStripedMatrixMultiplicationSEQ::OlesnitskiyVStripedMatrixMultiplicationSEQ(const InType &in)
-    : rows_a_(0), cols_a_(0), rows_b_(0), cols_b_(0), rows_c_(0), cols_c_(0), num_stripes_(1) {
+    : rows_a_{0}, cols_a_{0}, rows_b_{0}, cols_b_{0}, rows_c_{0}, cols_c_{0}, num_stripes_{1} {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetInput() = in;
   GetOutput() = std::make_tuple(0, 0, std::vector<double>());
 }
 
-int OlesnitskiyVStripedMatrixMultiplicationSEQ::FindCommonDivisor(int a, int b, int max_divisor) const {
+static int FindCommonDivisor(int a, int b, int max_divisor) {
   if (a <= 0 || b <= 0 || max_divisor <= 1) {
     return 1;
   }
 
-  for (int d = std::min({a, b, max_divisor}); d >= 1; --d) {
-    if (a % d == 0 && b % d == 0) {
-      return d;
+  for (int divisor = std::min({a, b, max_divisor}); divisor >= 1; --divisor) {
+    if (a % divisor == 0 && b % divisor == 0) {
+      return divisor;
     }
   }
 
@@ -102,6 +102,26 @@ bool OlesnitskiyVStripedMatrixMultiplicationSEQ::MultiplySimple() {
   return true;
 }
 
+bool OlesnitskiyVStripedMatrixMultiplicationSEQ::ProcessStripePair(int stripe_a, int stripe_b, size_t rows_per_stripe,
+                                                                   size_t cols_per_stripe) {
+  const size_t start_row_a = static_cast<size_t>(stripe_a) * rows_per_stripe;
+  const size_t start_col_b = static_cast<size_t>(stripe_b) * cols_per_stripe;
+
+  for (size_t i = 0; i < rows_per_stripe; ++i) {
+    const size_t row_idx = start_row_a + i;
+    for (size_t j = 0; j < cols_per_stripe; ++j) {
+      const size_t col_idx = start_col_b + j;
+      double sum = 0.0;
+
+      for (size_t k = 0; k < cols_a_; ++k) {
+        sum += data_a_[(row_idx * cols_a_) + k] * data_b_[(k * cols_b_) + col_idx];
+      }
+      result_c_[(row_idx * cols_b_) + col_idx] = sum;
+    }
+  }
+  return true;
+}
+
 bool OlesnitskiyVStripedMatrixMultiplicationSEQ::MultiplyStriped() {
   if (rows_a_ % static_cast<size_t>(num_stripes_) != 0 || cols_b_ % static_cast<size_t>(num_stripes_) != 0) {
     return false;
@@ -111,21 +131,9 @@ bool OlesnitskiyVStripedMatrixMultiplicationSEQ::MultiplyStriped() {
   const size_t cols_per_stripe = cols_b_ / static_cast<size_t>(num_stripes_);
 
   for (int stripe_a = 0; stripe_a < num_stripes_; ++stripe_a) {
-    const size_t start_row_a = static_cast<size_t>(stripe_a) * rows_per_stripe;
     for (int stripe_b = 0; stripe_b < num_stripes_; ++stripe_b) {
-      const size_t start_col_b = static_cast<size_t>(stripe_b) * cols_per_stripe;
-
-      for (size_t i = 0; i < rows_per_stripe; ++i) {
-        const size_t row_idx = start_row_a + i;
-        for (size_t j = 0; j < cols_per_stripe; ++j) {
-          const size_t col_idx = start_col_b + j;
-          double sum = 0.0;
-
-          for (size_t k = 0; k < cols_a_; ++k) {
-            sum += data_a_[(row_idx * cols_a_) + k] * data_b_[(k * cols_b_) + col_idx];
-          }
-          result_c_[(row_idx * cols_b_) + col_idx] = sum;
-        }
+      if (!ProcessStripePair(stripe_a, stripe_b, rows_per_stripe, cols_per_stripe)) {
+        return false;
       }
     }
   }

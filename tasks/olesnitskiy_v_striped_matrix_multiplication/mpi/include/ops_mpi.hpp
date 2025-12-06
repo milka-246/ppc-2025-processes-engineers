@@ -25,7 +25,17 @@ class OlesnitskiyVStripedMatrixMultiplicationMPI : public ppc::task::Task<InType
   static std::vector<int> CalculateCounts(int total, int num_parts);
   static std::vector<int> CalculateDisplacements(const std::vector<int> &counts);
   bool RunOnSingleProcess();
-
+  bool ScatterData();
+  bool BroadcastMatrixB();
+  bool ComputeLocalC();
+  bool GatherResults();
+  bool BroadcastResults();
+  bool SetOutput();
+  bool ComputeSingleProcess();
+  std::vector<double> local_a_;
+  std::vector<double> local_b_;
+  std::vector<double> local_c_;
+  int rows_a_local_{0};
   size_t rows_a_{0};
   size_t cols_a_{0};
   std::vector<double> data_a_;

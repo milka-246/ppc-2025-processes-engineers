@@ -67,7 +67,7 @@ std::vector<double> CreateMatrix(size_t rows, size_t cols, double start_value = 
   std::vector<double> matrix(rows * cols);
   for (size_t i = 0; i < rows; ++i) {
     for (size_t j = 0; j < cols; ++j) {
-      matrix[(i * cols) + j] = start_value + (i * cols) + j;
+      matrix[(i * cols) + j] = start_value + static_cast<double>((i * cols) + j);
     }
   }
   return matrix;
@@ -84,7 +84,7 @@ std::vector<double> MultiplyMatrices(const std::vector<double> &a, size_t rows_a
       for (size_t k = 0; k < cols_a; ++k) {
         sum += a[(i * cols_a) + k] * b[(k * cols_b) + j];
       }
-      c[i * cols_b + j] = sum;
+      c[(i * cols_b) + j] = sum;
     }
   }
 
@@ -92,28 +92,17 @@ std::vector<double> MultiplyMatrices(const std::vector<double> &a, size_t rows_a
 }
 
 const std::array<TestType, 15> kTestParam = {
-    std::make_tuple(std::make_tuple(1UL, 1UL, std::vector<double>{2.0},  // A: 1x1
-                                    1UL, 1UL, std::vector<double>{3.0}   // B: 1x1
-                                    ),
-                    std::make_tuple(1UL, 1UL, std::vector<double>{6.0}  // C: 1x1 = 2*3
-                                    ),
-                    "1x1_single_element"),
+    std::make_tuple(std::make_tuple(1UL, 1UL, std::vector<double>{2.0}, 1UL, 1UL, std::vector<double>{3.0}),
+                    std::make_tuple(1UL, 1UL, std::vector<double>{6.0}), "1x1_single_element"),
 
-    std::make_tuple(std::make_tuple(2UL, 2UL, std::vector<double>{1.0, 2.0, 3.0, 4.0},  // A: 2x2
-                                    2UL, 2UL, std::vector<double>{2.0, 0.0, 1.0, 2.0}   // B: 2x2
-                                    ),
-                    std::make_tuple(2UL, 2UL, std::vector<double>{4.0, 4.0, 10.0, 8.0}  // C: 2x2
-                                    ),
-                    "2x2_basic"),
+    std::make_tuple(std::make_tuple(2UL, 2UL, std::vector<double>{1.0, 2.0, 3.0, 4.0}, 2UL, 2UL,
+                                    std::vector<double>{2.0, 0.0, 1.0, 2.0}),
+                    std::make_tuple(2UL, 2UL, std::vector<double>{4.0, 4.0, 10.0, 8.0}), "2x2_basic"),
 
-    std::make_tuple(
-        std::make_tuple(3UL, 3UL, std::vector<double>{1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0},  // A: единичная 3x3
-                        3UL, 3UL, std::vector<double>{1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0}   // B: 3x3
-                        ),
-        std::make_tuple(
-            3UL, 3UL, std::vector<double>{1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0}  // C = A*B = B (A - единичная)
-            ),
-        "3x3_identity"),
+    std::make_tuple(std::make_tuple(3UL, 3UL, std::vector<double>{1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0}, 3UL,
+                                    3UL, std::vector<double>{1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0}),
+                    std::make_tuple(3UL, 3UL, std::vector<double>{1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0}),
+                    "3x3_identity"),
 
     std::make_tuple(
         std::make_tuple(

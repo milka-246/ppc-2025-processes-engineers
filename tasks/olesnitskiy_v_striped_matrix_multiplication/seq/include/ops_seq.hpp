@@ -22,18 +22,17 @@ class OlesnitskiyVStripedMatrixMultiplicationSEQ : public BaseTask {
   bool PostProcessingImpl() override;
   bool MultiplySimple();
   bool MultiplyStriped();
+  bool ProcessStripePair(int stripe_a, int stripe_b, size_t rows_per_stripe, size_t cols_per_stripe);
 
-  [[nodiscard]] int FindCommonDivisor(int a, int b, int max_divisor) const;
-
-  size_t rows_a_;
-  size_t cols_a_;
+  size_t rows_a_{0};
+  size_t cols_a_{0};
   std::vector<double> data_a_;
-  size_t rows_b_;
-  size_t cols_b_;
+  size_t rows_b_{0};
+  size_t cols_b_{0};
   std::vector<double> data_b_;
-  size_t rows_c_;
-  size_t cols_c_;
+  size_t rows_c_{0};
+  size_t cols_c_{0};
   std::vector<double> result_c_;
-  int num_stripes_;
+  int num_stripes_{1};
 };
 }  // namespace olesnitskiy_v_striped_matrix_multiplication
