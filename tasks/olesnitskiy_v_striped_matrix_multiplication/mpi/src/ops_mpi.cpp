@@ -220,9 +220,9 @@ bool OlesnitskiyVStripedMatrixMultiplicationMPI::ReceiveResultsFromRoot() {
 bool OlesnitskiyVStripedMatrixMultiplicationMPI::BroadcastResults() {
   if (rank_ == 0) {
     return BroadcastResultsFromRoot();
-  } else {
-    return ReceiveResultsFromRoot();
   }
+
+  return ReceiveResultsFromRoot();
 }
 
 bool OlesnitskiyVStripedMatrixMultiplicationMPI::SetOutput() {
