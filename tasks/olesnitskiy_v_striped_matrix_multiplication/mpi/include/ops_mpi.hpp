@@ -32,10 +32,23 @@ class OlesnitskiyVStripedMatrixMultiplicationMPI : public ppc::task::Task<InType
   bool BroadcastResults();
   bool SetOutput();
   bool ComputeSingleProcess();
+  bool PrepareScatterData();
+  bool PrepareGatherData();
+  bool BroadcastResultsFromRoot();
+  bool ReceiveResultsFromRoot();
+  void MultiplyRow(size_t row_start, size_t row_end);
+  void MultiplySingleProcessMatrix();
   std::vector<double> local_a_;
   std::vector<double> local_b_;
   std::vector<double> local_c_;
   int rows_a_local_{0};
+  std::vector<int> sendcounts_a_;
+  std::vector<int> displs_a_;
+  std::vector<int> recvcounts_c_;
+  std::vector<int> displs_c_;
+  std::vector<int> row_counts_;
+  std::vector<int> row_displs_;
+
   size_t rows_a_{0};
   size_t cols_a_{0};
   std::vector<double> data_a_;
