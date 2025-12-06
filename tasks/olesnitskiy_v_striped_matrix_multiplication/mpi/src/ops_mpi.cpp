@@ -14,7 +14,7 @@ namespace olesnitskiy_v_striped_matrix_multiplication {
 OlesnitskiyVStripedMatrixMultiplicationMPI::OlesnitskiyVStripedMatrixMultiplicationMPI(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetInput() = in;
-  GetOutput() = std::make_tuple(0, 0, std::vector<double>());
+  GetOutput() = {0UL, 0UL, std::vector<double>()};
   MPI_Comm_rank(MPI_COMM_WORLD, &rank_);
   MPI_Comm_size(MPI_COMM_WORLD, &world_size_);
 }
@@ -192,9 +192,9 @@ bool OlesnitskiyVStripedMatrixMultiplicationMPI::BroadcastResultsFromRoot() {
   }
 
   if (result_c_.empty()) {
-    GetOutput() = std::make_tuple(0UL, 0UL, std::vector<double>());
+    GetOutput() = {0UL, 0UL, std::vector<double>()};
   } else {
-    GetOutput() = std::make_tuple(rows_c_, cols_c_, result_c_);
+    GetOutput() = {rows_c_, cols_c_, result_c_};
   }
 
   return true;
@@ -209,9 +209,9 @@ bool OlesnitskiyVStripedMatrixMultiplicationMPI::ReceiveResultsFromRoot() {
   if (result_rows > 0 && result_cols > 0) {
     std::vector<double> received_result(static_cast<size_t>(result_rows) * static_cast<size_t>(result_cols));
     MPI_Bcast(received_result.data(), static_cast<int>(received_result.size()), MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    GetOutput() = std::make_tuple(static_cast<size_t>(result_rows), static_cast<size_t>(result_cols), received_result);
+    GetOutput() = {static_cast<size_t>(result_rows), static_cast<size_t>(result_cols), std::move(received_result)};
   } else {
-    GetOutput() = std::make_tuple(0UL, 0UL, std::vector<double>());
+    GetOutput() = {0UL, 0UL, std::vector<double>()};
   }
 
   return true;
@@ -228,9 +228,9 @@ bool OlesnitskiyVStripedMatrixMultiplicationMPI::BroadcastResults() {
 bool OlesnitskiyVStripedMatrixMultiplicationMPI::SetOutput() {
   if (rank_ == 0) {
     if (result_c_.empty()) {
-      GetOutput() = std::make_tuple(0UL, 0UL, std::vector<double>());
+      GetOutput() = {0UL, 0UL, std::vector<double>()};
     } else {
-      GetOutput() = std::make_tuple(rows_c_, cols_c_, result_c_);
+      GetOutput() = {rows_c_, cols_c_, result_c_};
     }
   }
   return true;
