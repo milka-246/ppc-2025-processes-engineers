@@ -1,9 +1,17 @@
 #include "olesnitskiy_v_striped_matrix_multiplication/mpi/include/ops_mpi.hpp"
 
+#include <mpi.h>
+
+#include <algorithm>
+#include <cstddef>
+#include <tuple>
+#include <vector>
+
 #include "olesnitskiy_v_striped_matrix_multiplication/common/include/common.hpp"
 #include "util/include/util.hpp"
 
 namespace olesnitskiy_v_striped_matrix_multiplication {
+
 OlesnitskiyVStripedMatrixMultiplicationMPI::OlesnitskiyVStripedMatrixMultiplicationMPI(const InType &in)
     : rows_a_(0), cols_a_(0), rows_b_(0), cols_b_(0), rows_c_(0), cols_c_(0) {
   SetTypeOfTask(GetStaticTypeOfTask());
@@ -115,9 +123,15 @@ bool OlesnitskiyVStripedMatrixMultiplicationMPI::RunImpl() {
     int result_cols = 0;
     MPI_Bcast(&result_rows, 1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(&result_cols, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    std::vector<double> received_result(result_rows * result_cols);
-    MPI_Bcast(received_result.data(), static_cast<int>(received_result.size()), MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    GetOutput() = std::make_tuple(static_cast<size_t>(result_rows), static_cast<size_t>(result_cols), received_result);
+
+    if (result_rows > 0 && result_cols > 0) {
+      std::vector<double> received_result(result_rows * result_cols);
+      MPI_Bcast(received_result.data(), static_cast<int>(received_result.size()), MPI_DOUBLE, 0, MPI_COMM_WORLD);
+      GetOutput() =
+          std::make_tuple(static_cast<size_t>(result_rows), static_cast<size_t>(result_cols), received_result);
+    } else {
+      GetOutput() = std::make_tuple(0UL, 0UL, std::vector<double>());
+    }
   }
   const auto &[out_rows, out_cols, out_data] = GetOutput();
   bool success = (out_rows == rows_c_) && (out_cols == cols_c_) && (out_data.size() == rows_c_ * cols_c_);
@@ -148,9 +162,14 @@ bool OlesnitskiyVStripedMatrixMultiplicationMPI::RunOnSingleProcess() {
     int result_cols = 0;
     MPI_Bcast(&result_rows, 1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(&result_cols, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    std::vector<double> received_result(result_rows * result_cols);
-    MPI_Bcast(received_result.data(), static_cast<int>(received_result.size()), MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    GetOutput() = std::make_tuple(static_cast<size_t>(result_rows), static_cast<size_t>(result_cols), received_result);
+    if (result_rows > 0 && result_cols > 0) {
+      std::vector<double> received_result(result_rows * result_cols);
+      MPI_Bcast(received_result.data(), static_cast<int>(received_result.size()), MPI_DOUBLE, 0, MPI_COMM_WORLD);
+      GetOutput() =
+          std::make_tuple(static_cast<size_t>(result_rows), static_cast<size_t>(result_cols), received_result);
+    } else {
+      GetOutput() = std::make_tuple(0UL, 0UL, std::vector<double>());
+    }
   }
   const auto &[out_rows, out_cols, out_data] = GetOutput();
   bool success = (out_rows == rows_c_) && (out_cols == cols_c_) && (out_data.size() == rows_c_ * cols_c_);

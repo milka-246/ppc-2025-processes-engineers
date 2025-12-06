@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <vector>
 
 #include "olesnitskiy_v_striped_matrix_multiplication/common/include/common.hpp"
 #include "task/include/task.hpp"

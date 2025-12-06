@@ -1,5 +1,13 @@
 #include <gtest/gtest.h>
 
+#include <array>
+#include <cmath>
+#include <cstddef>
+#include <string>
+#include <tuple>
+#include <utility>
+#include <vector>
+
 #include "olesnitskiy_v_striped_matrix_multiplication/common/include/common.hpp"
 #include "olesnitskiy_v_striped_matrix_multiplication/mpi/include/ops_mpi.hpp"
 #include "olesnitskiy_v_striped_matrix_multiplication/seq/include/ops_seq.hpp"
@@ -33,7 +41,7 @@ class OlesnitskiyVStripedMatrixMultiplicationFuncTests : public ppc::util::BaseR
 
     const double epsilon = 1e-6;
     for (size_t i = 0; i < out_data.size(); ++i) {
-      if (std::abs(out_data[i] - exp_data[i]) > epsilon) {
+      if (std::fabs(out_data[i] - exp_data[i]) > epsilon) {
         return false;
       }
     }
