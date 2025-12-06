@@ -23,26 +23,23 @@ class OlesnitskiyVStripedMatrixMultiplicationPerfTests : public ppc::util::BaseR
     size_t rows_b = size;
     size_t cols_b = size;
 
-    size_t total_A = rows_a * cols_a;
-    size_t total_B = rows_b * cols_b;
+    size_t total_a = rows_a * cols_a;
+    size_t total_b = rows_b * cols_b;
 
-    std::vector<double> matrix_A(total_A);
-    std::vector<double> matrix_B(total_B);
-    for (size_t i = 0; i < total_A; ++i) {
-      matrix_A[i] = static_cast<double>((i * 37) % 1000) / 1000.0;
+    std::vector<double> matrix_a(total_a);
+    std::vector<double> matrix_b(total_b);
+    for (size_t i = 0; i < total_a; ++i) {
+      matrix_a[i] = static_cast<double>((i * 37) % 1000) / 1000.0;
     }
-    for (size_t i = 0; i < total_B; ++i) {
-      matrix_B[i] = static_cast<double>((i * 73 + 50) % 1000) / 1000.0;
+    for (size_t i = 0; i < total_b; ++i) {
+      matrix_b[i] = static_cast<double>((i * 73 + 50) % 1000) / 1000.0;
     }
-    input_data_ = std::make_tuple(rows_a, cols_a, matrix_A, rows_b, cols_b, matrix_B);
+    input_data_ = std::make_tuple(rows_a, cols_a, matrix_a, rows_b, cols_b, matrix_b);
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
     const auto &[out_rows, out_cols, out_data] = output_data;
-    if (out_data.empty() || out_rows != 1024 || out_cols != 1024) {
-      return false;
-    }
-    return true;
+    return !(out_data.empty() || out_rows != 1024 || out_cols != 1024);
   }
 
   InType GetTestInputData() final {

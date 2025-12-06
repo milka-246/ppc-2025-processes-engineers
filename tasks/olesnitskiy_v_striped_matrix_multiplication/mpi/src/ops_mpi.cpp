@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 #include "olesnitskiy_v_striped_matrix_multiplication/common/include/common.hpp"
@@ -94,7 +95,7 @@ bool OlesnitskiyVStripedMatrixMultiplicationMPI::RunImpl() {
       for (size_t k = 0; k < cols_a_; ++k) {
         sum += local_a[(local_row * cols_a_) + k] * local_b[(k * cols_b_) + col];
       }
-      local_c[local_row * cols_c_ + col] = sum;
+      local_c[(local_row * cols_c_) + col] = sum;
     }
   }
   std::vector<int> recvcounts_c(world_size_);
@@ -103,11 +104,15 @@ bool OlesnitskiyVStripedMatrixMultiplicationMPI::RunImpl() {
     recvcounts_c[i] = row_counts[i] * static_cast<int>(cols_c_);
     displs_c[i] = row_displs[i] * static_cast<int>(cols_c_);
   }
-  if (rank_ == 0) {
-    result_c_.resize(rows_c_ * cols_c_, 0.0);
+
+  const std::size_t result_size = rows_c_ * cols_c_;
+  if (rank_ == 0 && result_size > 0) {
+    result_c_.resize(result_size, 0.0);
   }
-  MPI_Gatherv(local_c.data(), recvcounts_c[rank_], MPI_DOUBLE, rank_ == 0 ? result_c_.data() : nullptr,
-              recvcounts_c.data(), displs_c.data(), MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+  MPI_Gatherv(local_c.data(), recvcounts_c[rank_], MPI_DOUBLE,
+              rank_ == 0 && result_size > 0 ? result_c_.data() : nullptr, recvcounts_c.data(), displs_c.data(),
+              MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
   if (rank_ == 0) {
     if (result_c_.empty()) {
@@ -144,15 +149,19 @@ bool OlesnitskiyVStripedMatrixMultiplicationMPI::RunImpl() {
 }
 
 bool OlesnitskiyVStripedMatrixMultiplicationMPI::RunOnSingleProcess() {
+  const std::size_t result_size = rows_c_ * cols_c_;
+
   if (rank_ == 0) {
-    result_c_.resize(rows_c_ * cols_c_, 0.0);
-    for (size_t i = 0; i < rows_a_; ++i) {
-      for (size_t j = 0; j < cols_b_; ++j) {
-        double sum = 0.0;
-        for (size_t k = 0; k < cols_a_; ++k) {
-          sum += data_a_[i * cols_a_ + k] * data_b_[k * cols_b_ + j];
+    if (result_size > 0) {
+      result_c_.resize(result_size, 0.0);
+      for (size_t i = 0; i < rows_a_; ++i) {
+        for (size_t j = 0; j < cols_b_; ++j) {
+          double sum = 0.0;
+          for (size_t k = 0; k < cols_a_; ++k) {
+            sum += data_a_[(i * cols_a_) + k] * data_b_[(k * cols_b_) + j];
+          }
+          result_c_[(i * cols_c_) + j] = sum;
         }
-        result_c_[i * cols_c_ + j] = sum;
       }
     }
 
@@ -161,10 +170,12 @@ bool OlesnitskiyVStripedMatrixMultiplicationMPI::RunOnSingleProcess() {
     } else {
       GetOutput() = std::make_tuple(rows_c_, cols_c_, result_c_);
     }
+
     int result_rows = static_cast<int>(rows_c_);
     int result_cols = static_cast<int>(cols_c_);
     MPI_Bcast(&result_rows, 1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(&result_cols, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
     if (!result_c_.empty()) {
       MPI_Bcast(result_c_.data(), static_cast<int>(result_c_.size()), MPI_DOUBLE, 0, MPI_COMM_WORLD);
     }
@@ -173,6 +184,7 @@ bool OlesnitskiyVStripedMatrixMultiplicationMPI::RunOnSingleProcess() {
     int result_cols = 0;
     MPI_Bcast(&result_rows, 1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(&result_cols, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
     if (result_rows > 0 && result_cols > 0) {
       std::vector<double> received_result(static_cast<std::size_t>(result_rows) *
                                           static_cast<std::size_t>(result_cols));
