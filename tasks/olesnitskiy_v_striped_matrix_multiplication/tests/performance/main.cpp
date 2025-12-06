@@ -39,7 +39,7 @@ class OlesnitskiyVStripedMatrixMultiplicationPerfTests : public ppc::util::BaseR
 
   bool CheckTestOutputData(OutType &output_data) final {
     const auto &[out_rows, out_cols, out_data] = output_data;
-    return !(out_data.empty() || out_rows != 1024 || out_cols != 1024);
+    return !out_data.empty() && out_rows == 1024 && out_cols == 1024;
   }
 
   InType GetTestInputData() final {

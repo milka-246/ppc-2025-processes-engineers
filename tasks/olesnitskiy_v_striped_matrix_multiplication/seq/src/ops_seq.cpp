@@ -8,14 +8,9 @@
 #include "olesnitskiy_v_striped_matrix_multiplication/common/include/common.hpp"
 
 namespace olesnitskiy_v_striped_matrix_multiplication {
-OlesnitskiyVStripedMatrixMultiplicationSEQ::OlesnitskiyVStripedMatrixMultiplicationSEQ(const InType &in)
-    : rows_a_{0}, cols_a_{0}, rows_b_{0}, cols_b_{0}, rows_c_{0}, cols_c_{0}, num_stripes_{1} {
-  SetTypeOfTask(GetStaticTypeOfTask());
-  GetInput() = in;
-  GetOutput() = std::make_tuple(0, 0, std::vector<double>());
-}
 
-static int FindCommonDivisor(int a, int b, int max_divisor) {
+namespace {
+int FindCommonDivisor(int a, int b, int max_divisor) {
   if (a <= 0 || b <= 0 || max_divisor <= 1) {
     return 1;
   }
@@ -27,6 +22,13 @@ static int FindCommonDivisor(int a, int b, int max_divisor) {
   }
 
   return 1;
+}
+}  // namespace
+
+OlesnitskiyVStripedMatrixMultiplicationSEQ::OlesnitskiyVStripedMatrixMultiplicationSEQ(const InType &in) {
+  SetTypeOfTask(GetStaticTypeOfTask());
+  GetInput() = in;
+  GetOutput() = std::make_tuple(0, 0, std::vector<double>());
 }
 
 bool OlesnitskiyVStripedMatrixMultiplicationSEQ::ValidationImpl() {
