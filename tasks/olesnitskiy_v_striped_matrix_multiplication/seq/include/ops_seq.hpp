@@ -20,6 +20,8 @@ class OlesnitskiyVStripedMatrixMultiplicationSEQ : public BaseTask {
   bool PreProcessingImpl() override;
   bool RunImpl() override;
   bool PostProcessingImpl() override;
+  bool MultiplySimple();
+  bool MultiplyStriped();
 
   [[nodiscard]] int FindCommonDivisor(int a, int b, int max_divisor) const;
 

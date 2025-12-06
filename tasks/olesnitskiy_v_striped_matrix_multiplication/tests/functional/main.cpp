@@ -73,22 +73,22 @@ std::vector<double> CreateMatrix(size_t rows, size_t cols, double start_value = 
   return matrix;
 }
 
-std::vector<double> MultiplyMatrices(const std::vector<double> &A, size_t rows_a, size_t cols_a,
-                                     const std::vector<double> &B, size_t rows_b, size_t cols_b) {
+std::vector<double> MultiplyMatrices(const std::vector<double> &a, size_t rows_a, size_t cols_a,
+                                     const std::vector<double> &b, size_t rows_b, size_t cols_b) {
   (void)rows_b;
-  std::vector<double> C(rows_a * cols_b, 0.0);
+  std::vector<double> c(rows_a * cols_b, 0.0);
 
   for (size_t i = 0; i < rows_a; ++i) {
     for (size_t j = 0; j < cols_b; ++j) {
       double sum = 0.0;
       for (size_t k = 0; k < cols_a; ++k) {
-        sum += A[(i * cols_a) + k] * B[(k * cols_b) + j];
+        sum += a[(i * cols_a) + k] * b[(k * cols_b) + j];
       }
-      C[i * cols_b + j] = sum;
+      c[i * cols_b + j] = sum;
     }
   }
 
-  return C;
+  return c;
 }
 
 const std::array<TestType, 15> kTestParam = {

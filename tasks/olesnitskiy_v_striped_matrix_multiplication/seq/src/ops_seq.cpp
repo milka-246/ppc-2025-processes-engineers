@@ -6,7 +6,6 @@
 #include <vector>
 
 #include "olesnitskiy_v_striped_matrix_multiplication/common/include/common.hpp"
-#include "util/include/util.hpp"
 
 namespace olesnitskiy_v_striped_matrix_multiplication {
 OlesnitskiyVStripedMatrixMultiplicationSEQ::OlesnitskiyVStripedMatrixMultiplicationSEQ(const InType &in)
@@ -70,43 +69,66 @@ bool OlesnitskiyVStripedMatrixMultiplicationSEQ::PreProcessingImpl() {
 
 bool OlesnitskiyVStripedMatrixMultiplicationSEQ::RunImpl() {
   if (rows_a_ == 0 || cols_b_ == 0) {
+    GetOutput() = std::make_tuple(rows_c_, cols_c_, std::vector<double>());
+    return true;
+  }
+
+  result_c_.resize(rows_c_ * cols_c_, 0.0);
+
+  bool success = false;
+  if (num_stripes_ == 1) {
+    success = MultiplySimple();
+  } else {
+    success = MultiplyStriped();
+  }
+
+  if (success) {
+    GetOutput() = std::make_tuple(rows_c_, cols_c_, result_c_);
+  }
+
+  return success;
+}
+
+bool OlesnitskiyVStripedMatrixMultiplicationSEQ::MultiplySimple() {
+  for (size_t i = 0; i < rows_a_; ++i) {
+    for (size_t j = 0; j < cols_b_; ++j) {
+      double sum = 0.0;
+      for (size_t k = 0; k < cols_a_; ++k) {
+        sum += data_a_[(i * cols_a_) + k] * data_b_[(k * cols_b_) + j];
+      }
+      result_c_[(i * cols_b_) + j] = sum;
+    }
+  }
+  return true;
+}
+
+bool OlesnitskiyVStripedMatrixMultiplicationSEQ::MultiplyStriped() {
+  if (rows_a_ % static_cast<size_t>(num_stripes_) != 0 || cols_b_ % static_cast<size_t>(num_stripes_) != 0) {
     return false;
   }
-  if (num_stripes_ == 1) {
-    for (size_t i = 0; i < rows_a_; ++i) {
-      for (size_t j = 0; j < cols_b_; ++j) {
-        double sum = 0.0;
-        for (size_t k = 0; k < cols_a_; ++k) {
-          sum += data_a_[i * cols_a_ + k] * data_b_[k * cols_b_ + j];
-        }
-        result_c_[i * cols_b_ + j] = sum;
-      }
-    }
-  } else {
-    if (rows_a_ % num_stripes_ != 0 || cols_b_ % num_stripes_ != 0) {
-      return false;
-    }
-    size_t rows_per_stripe = rows_a_ / num_stripes_;
-    size_t cols_per_stripe = cols_b_ / num_stripes_;
-    for (int stripe_a = 0; stripe_a < num_stripes_; ++stripe_a) {
-      size_t start_row_a = stripe_a * rows_per_stripe;
-      for (int stripe_b = 0; stripe_b < num_stripes_; ++stripe_b) {
-        size_t start_col_b = stripe_b * cols_per_stripe;
-        for (size_t i = 0; i < rows_per_stripe; ++i) {
-          size_t row_idx = start_row_a + i;
-          for (size_t j = 0; j < cols_per_stripe; ++j) {
-            size_t col_idx = start_col_b + j;
-            double sum = 0.0;
-            for (size_t k = 0; k < cols_a_; ++k) {
-              sum += data_a_[row_idx * cols_a_ + k] * data_b_[k * cols_b_ + col_idx];
-            }
-            result_c_[row_idx * cols_b_ + col_idx] = sum;
+
+  const size_t rows_per_stripe = rows_a_ / static_cast<size_t>(num_stripes_);
+  const size_t cols_per_stripe = cols_b_ / static_cast<size_t>(num_stripes_);
+
+  for (int stripe_a = 0; stripe_a < num_stripes_; ++stripe_a) {
+    const size_t start_row_a = static_cast<size_t>(stripe_a) * rows_per_stripe;
+    for (int stripe_b = 0; stripe_b < num_stripes_; ++stripe_b) {
+      const size_t start_col_b = static_cast<size_t>(stripe_b) * cols_per_stripe;
+
+      for (size_t i = 0; i < rows_per_stripe; ++i) {
+        const size_t row_idx = start_row_a + i;
+        for (size_t j = 0; j < cols_per_stripe; ++j) {
+          const size_t col_idx = start_col_b + j;
+          double sum = 0.0;
+
+          for (size_t k = 0; k < cols_a_; ++k) {
+            sum += data_a_[(row_idx * cols_a_) + k] * data_b_[(k * cols_b_) + col_idx];
           }
+          result_c_[(row_idx * cols_b_) + col_idx] = sum;
         }
       }
     }
   }
-  GetOutput() = std::make_tuple(rows_c_, cols_c_, result_c_);
   return true;
 }
 
