@@ -1,99 +1,88 @@
 #include "olesnitskiy_v_striped_matrix_multiplication/seq/include/ops_seq.hpp"
 
-#include <numeric>
-#include <vector>
-#include <iostream>
-#include <cmath>
-#include <algorithm>
-
 #include "olesnitskiy_v_striped_matrix_multiplication/common/include/common.hpp"
 #include "util/include/util.hpp"
 
 namespace olesnitskiy_v_striped_matrix_multiplication {
-OlesnitskiyVStripedMatrixMultiplicationSEQ::OlesnitskiyVStripedMatrixMultiplicationSEQ(const InType &in) {
+OlesnitskiyVStripedMatrixMultiplicationSEQ::OlesnitskiyVStripedMatrixMultiplicationSEQ(const InType &in)
+    : rows_a_(0), cols_a_(0), rows_b_(0), cols_b_(0), rows_c_(0), cols_c_(0), num_stripes_(1) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetInput() = in;
   GetOutput() = std::make_tuple(0, 0, std::vector<double>());
-  
-  rows_A_ = 0;
-  cols_A_ = 0;
-  rows_B_ = 0;
-  cols_B_ = 0;
-  rows_C_ = 0;
-  cols_C_ = 0;
-  num_stripes_ = 1;
 }
 
-int OlesnitskiyVStripedMatrixMultiplicationSEQ::find_common_divisor(int a, int b, int max_divisor) const {
-  if (a <= 0 || b <= 0 || max_divisor <= 1) return 1;
-  
+int OlesnitskiyVStripedMatrixMultiplicationSEQ::FindCommonDivisor(int a, int b, int max_divisor) const {
+  if (a <= 0 || b <= 0 || max_divisor <= 1) {
+    return 1;
+  }
+
   for (int d = std::min({a, b, max_divisor}); d >= 1; --d) {
     if (a % d == 0 && b % d == 0) {
       return d;
     }
   }
-  
+
   return 1;
 }
 
 bool OlesnitskiyVStripedMatrixMultiplicationSEQ::ValidationImpl() {
-  const auto& [rows_A, cols_A, data_A, rows_B, cols_B, data_B] = GetInput();
-  const auto& [out_rows, out_cols, out_data] = GetOutput();
-  rows_A_ = rows_A;
-  cols_A_ = cols_A;
-  data_A_ = data_A;
-  rows_B_ = rows_B;
-  cols_B_ = cols_B;
-  data_B_ = data_B;
-  if (rows_A == 0 || cols_A == 0 || rows_B == 0 || cols_B == 0) {
+  const auto &[rows_a, cols_a, data_a, rows_b, cols_b, data_b] = GetInput();
+  const auto &[out_rows, out_cols, out_data] = GetOutput();
+  rows_a_ = rows_a;
+  cols_a_ = cols_a;
+  data_a_ = data_a;
+  rows_b_ = rows_b;
+  cols_b_ = cols_b;
+  data_b_ = data_b;
+  if (rows_a == 0 || cols_a == 0 || rows_b == 0 || cols_b == 0) {
     return false;
   }
-  if (data_A.size() != rows_A * cols_A || data_B.size() != rows_B * cols_B) {
+  if (data_a.size() != rows_a * cols_a || data_b.size() != rows_b * cols_b) {
     return false;
   }
-  if (cols_A != rows_B) {
+  if (cols_a != rows_b) {
     return false;
   }
   if (out_rows != 0 || out_cols != 0 || !out_data.empty()) {
     return false;
   }
-  
+
   return true;
 }
 
 bool OlesnitskiyVStripedMatrixMultiplicationSEQ::PreProcessingImpl() {
-  rows_C_ = rows_A_;
-  cols_C_ = cols_B_;
+  rows_c_ = rows_a_;
+  cols_c_ = cols_b_;
   int max_stripes = 8;
-  num_stripes_ = find_common_divisor(static_cast<int>(rows_A_), static_cast<int>(cols_B_), max_stripes);
+  num_stripes_ = FindCommonDivisor(static_cast<int>(rows_a_), static_cast<int>(cols_b_), max_stripes);
   if (num_stripes_ < 2) {
     num_stripes_ = 1;
   }
-  result_C_.resize(rows_C_ * cols_C_, 0.0);
+  result_c_.resize(rows_c_ * cols_c_, 0.0);
   GetOutput() = std::make_tuple(0, 0, std::vector<double>());
   return true;
 }
 
 bool OlesnitskiyVStripedMatrixMultiplicationSEQ::RunImpl() {
-  if (rows_A_ == 0 || cols_B_ == 0) {
+  if (rows_a_ == 0 || cols_b_ == 0) {
     return false;
   }
   if (num_stripes_ == 1) {
-    for (size_t i = 0; i < rows_A_; ++i) {
-      for (size_t j = 0; j < cols_B_; ++j) {
+    for (size_t i = 0; i < rows_a_; ++i) {
+      for (size_t j = 0; j < cols_b_; ++j) {
         double sum = 0.0;
-        for (size_t k = 0; k < cols_A_; ++k) {
-          sum += data_A_[i * cols_A_ + k] * data_B_[k * cols_B_ + j];
+        for (size_t k = 0; k < cols_a_; ++k) {
+          sum += data_a_[i * cols_a_ + k] * data_b_[k * cols_b_ + j];
         }
-        result_C_[i * cols_B_ + j] = sum;
+        result_c_[i * cols_b_ + j] = sum;
       }
     }
   } else {
-    if (rows_A_ % num_stripes_ != 0 || cols_B_ % num_stripes_ != 0) {
+    if (rows_a_ % num_stripes_ != 0 || cols_b_ % num_stripes_ != 0) {
       return false;
     }
-    size_t rows_per_stripe = rows_A_ / num_stripes_;
-    size_t cols_per_stripe = cols_B_ / num_stripes_;
+    size_t rows_per_stripe = rows_a_ / num_stripes_;
+    size_t cols_per_stripe = cols_b_ / num_stripes_;
     for (int stripe_a = 0; stripe_a < num_stripes_; ++stripe_a) {
       size_t start_row_a = stripe_a * rows_per_stripe;
       for (int stripe_b = 0; stripe_b < num_stripes_; ++stripe_b) {
@@ -103,17 +92,16 @@ bool OlesnitskiyVStripedMatrixMultiplicationSEQ::RunImpl() {
           for (size_t j = 0; j < cols_per_stripe; ++j) {
             size_t col_idx = start_col_b + j;
             double sum = 0.0;
-            for (size_t k = 0; k < cols_A_; ++k) {
-              sum += data_A_[row_idx * cols_A_ + k] * 
-                     data_B_[k * cols_B_ + col_idx];
+            for (size_t k = 0; k < cols_a_; ++k) {
+              sum += data_a_[row_idx * cols_a_ + k] * data_b_[k * cols_b_ + col_idx];
             }
-            result_C_[row_idx * cols_B_ + col_idx] = sum;
+            result_c_[row_idx * cols_b_ + col_idx] = sum;
           }
         }
       }
     }
   }
-  GetOutput() = std::make_tuple(rows_C_, cols_C_, result_C_);
+  GetOutput() = std::make_tuple(rows_c_, cols_c_, result_c_);
   return true;
 }
 
