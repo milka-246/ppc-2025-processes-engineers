@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
+
 #include <vector>
+
 #include "olesnitskiy_v_dijkstra_crs/common/include/common.hpp"
 #include "olesnitskiy_v_dijkstra_crs/mpi/include/ops_mpi.hpp"
 #include "olesnitskiy_v_dijkstra_crs/seq/include/ops_seq.hpp"
@@ -15,7 +17,9 @@ class OlesnitskiyVDijkstraCrsPerfTest : public ppc::util::BaseRunPerfTests<InTyp
     for (int i = 0; i < kVertices_; ++i) {
       for (int edge_num = 0; edge_num < 100; ++edge_num) {
         int j = (i + edge_num * 97) % kVertices_;
-        if (j == i) j = (j + 1) % kVertices_;
+        if (j == i) {
+          j = (j + 1) % kVertices_;
+        }
         edges.push_back(j);
         int weight = 1 + ((i + j + edge_num) % 20);
         weights.push_back(weight);
@@ -58,7 +62,7 @@ class OlesnitskiyVDijkstraCrsPerfTest : public ppc::util::BaseRunPerfTests<InTyp
         return false;
       }
     }
-    
+
     return true;
   }
 
@@ -71,8 +75,8 @@ TEST_P(OlesnitskiyVDijkstraCrsPerfTest, RunPerfModes) {
   ExecuteTest(GetParam());
 }
 
-const auto kAllPerfTasks =
-    ppc::util::MakeAllPerfTasks<InType, OlesnitskiyVDijkstraCrsMPI, OlesnitskiyVDijkstraCrsSEQ>(PPC_SETTINGS_olesnitskiy_v_dijkstra_crs);
+const auto kAllPerfTasks = ppc::util::MakeAllPerfTasks<InType, OlesnitskiyVDijkstraCrsMPI, OlesnitskiyVDijkstraCrsSEQ>(
+    PPC_SETTINGS_olesnitskiy_v_dijkstra_crs);
 
 const auto kGtestValues = ppc::util::TupleToGTestValues(kAllPerfTasks);
 

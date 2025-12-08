@@ -8,12 +8,13 @@ class OlesnitskiyVDijkstraCrsSEQ : public BaseTask {
     return ppc::task::TypeOfTask::kSEQ;
   }
   explicit OlesnitskiyVDijkstraCrsSEQ(const InType &in);
+
  private:
   bool ValidationImpl() override;
   bool PreProcessingImpl() override;
   bool RunImpl() override;
   bool PostProcessingImpl() override;
-  std::vector<int> dijkstraCRS(const GraphCRS& graph);
-  int findMinDistance(const std::vector<int>& distances, const std::vector<bool>& visited);
+  std::vector<int> dijkstraCRS(const GraphCRS &graph);
+  int findMinDistance(const std::vector<int> &distances, const std::vector<bool> &visited);
 };
 }  // namespace olesnitskiy_v_dijkstra_crs

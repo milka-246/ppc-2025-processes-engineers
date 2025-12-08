@@ -1,8 +1,10 @@
 #include <gtest/gtest.h>
+
 #include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <iostream>
 #include <numeric>
 #include <random>
 #include <stdexcept>
@@ -10,7 +12,7 @@
 #include <tuple>
 #include <utility>
 #include <vector>
-#include <iostream>
+
 #include "olesnitskiy_v_dijkstra_crs/common/include/common.hpp"
 #include "olesnitskiy_v_dijkstra_crs/mpi/include/ops_mpi.hpp"
 #include "olesnitskiy_v_dijkstra_crs/seq/include/ops_seq.hpp"
@@ -84,8 +86,7 @@ class OlesnitskiyVDijkstraCrsFuncTests : public ppc::util::BaseRunFuncTests<InTy
       return true;
     }
     if (static_cast<int>(output_data.size()) != expected_vertices_) {
-      std::cout << "ERROR: Wrong size: expected " << expected_vertices_ 
-                << ", got " << output_data.size() << std::endl;
+      std::cout << "ERROR: Wrong size: expected " << expected_vertices_ << ", got " << output_data.size() << std::endl;
       return false;
     }
     if (output_data[expected_source_] != 0) {
@@ -117,19 +118,25 @@ class OlesnitskiyVDijkstraCrsFuncTests : public ppc::util::BaseRunFuncTests<InTy
       if (!all_match) {
         std::cout << "Expected distances: ";
         for (int d : expected_distances_) {
-          if (d == std::numeric_limits<int>::max()) std::cout << "INF ";
-          else std::cout << d << " ";
+          if (d == std::numeric_limits<int>::max()) {
+            std::cout << "INF ";
+          } else {
+            std::cout << d << " ";
+          }
         }
         std::cout << "\nActual distances: ";
         for (int d : output_data) {
-          if (d == std::numeric_limits<int>::max()) std::cout << "INF ";
-          else std::cout << d << " ";
+          if (d == std::numeric_limits<int>::max()) {
+            std::cout << "INF ";
+          } else {
+            std::cout << d << " ";
+          }
         }
         std::cout << std::endl;
         return false;
       }
     }
-    
+
     return true;
   }
 
@@ -246,7 +253,7 @@ class OlesnitskiyVDijkstraCrsFuncTests : public ppc::util::BaseRunFuncTests<InTy
     expected_source_ = 0;
     expected_distances_ = {0, 1, 1, std::numeric_limits<int>::max(), std::numeric_limits<int>::max()};
   }
-  
+
   void createGraphWithWeights() {
     std::vector<int> offsets = {0, 2, 3, 4, 4};
     std::vector<int> edges = {1, 2, 2, 3, 2};
@@ -256,7 +263,7 @@ class OlesnitskiyVDijkstraCrsFuncTests : public ppc::util::BaseRunFuncTests<InTy
     expected_source_ = 0;
     expected_distances_ = {0, 5, 2, 5};
   }
-  
+
   void createRandomSparseGraph(int vertices, int edges_count) {
     std::mt19937 gen(42);
     std::uniform_int_distribution<> vertex_dist(0, vertices - 1);
@@ -281,7 +288,7 @@ class OlesnitskiyVDijkstraCrsFuncTests : public ppc::util::BaseRunFuncTests<InTy
     expected_source_ = 0;
     expected_distances_.clear();
   }
-  
+
   void createRandomDenseGraph(int vertices) {
     std::mt19937 gen(123);
     std::uniform_int_distribution<> weight_dist(1, 5);
@@ -305,7 +312,7 @@ class OlesnitskiyVDijkstraCrsFuncTests : public ppc::util::BaseRunFuncTests<InTy
     expected_source_ = 0;
     expected_distances_.clear();
   }
-  
+
   void createMultiplePathsGraph() {
     std::vector<int> offsets = {0, 2, 3, 4, 4};
     std::vector<int> edges = {1, 2, 3, 3, 1};
@@ -315,7 +322,7 @@ class OlesnitskiyVDijkstraCrsFuncTests : public ppc::util::BaseRunFuncTests<InTy
     expected_source_ = 0;
     expected_distances_ = {0, 1, 1, 2};
   }
-  
+
   void createZeroWeightGraph() {
     std::vector<int> offsets = {0, 2, 4, 5, 5};
     std::vector<int> edges = {1, 2, 2, 3, 3, 2};
@@ -325,7 +332,7 @@ class OlesnitskiyVDijkstraCrsFuncTests : public ppc::util::BaseRunFuncTests<InTy
     expected_source_ = 0;
     expected_distances_ = {0, 0, 0, 1};
   }
-  
+
   void createBinaryTreeGraph(int levels) {
     int vertices = (1 << levels) - 1;
     std::vector<int> offsets(vertices + 1, 0);
@@ -380,17 +387,25 @@ class OlesnitskiyVDijkstraCrsFuncTests : public ppc::util::BaseRunFuncTests<InTy
       expected_distances_[i] = depth;
     }
   }
-  
+
   void createGridGraph(int rows, int cols) {
     int vertices = rows * cols;
     std::vector<int> offsets(vertices + 1, 0);
     for (int r = 0; r < rows; ++r) {
       for (int c = 0; c < cols; ++c) {
         int v = r * cols + c;
-        if (c + 1 < cols) offsets[v + 1]++;
-        if (r + 1 < rows) offsets[v + 1]++;
-        if (c > 0) offsets[v + 1]++;
-        if (r > 0) offsets[v + 1]++;
+        if (c + 1 < cols) {
+          offsets[v + 1]++;
+        }
+        if (r + 1 < rows) {
+          offsets[v + 1]++;
+        }
+        if (c > 0) {
+          offsets[v + 1]++;
+        }
+        if (r > 0) {
+          offsets[v + 1]++;
+        }
       }
     }
     for (int i = 0; i < vertices; ++i) {
@@ -447,25 +462,17 @@ TEST_P(OlesnitskiyVDijkstraCrsFuncTests, DijkstraCRSTest) {
 }
 
 const std::array<TestType, 14> kTestParam = {
-    std::make_tuple(0, "single_vertex"),
-    std::make_tuple(1, "two_vertices"),
-    std::make_tuple(2, "chain_5"),
-    std::make_tuple(3, "star_6"),
-    std::make_tuple(4, "complete_4"),
-    std::make_tuple(5, "disconnected"),
-    std::make_tuple(6, "weighted"),
-    std::make_tuple(7, "random_sparse_10_15"),
-    std::make_tuple(8, "random_dense_8"),
-    std::make_tuple(9, "chain_20"),
-    std::make_tuple(10, "multiple_paths"),
-    std::make_tuple(11, "zero_weight"),
-    std::make_tuple(12, "binary_tree_3"),
-    std::make_tuple(13, "grid_3x3")
-};
+    std::make_tuple(0, "single_vertex"),   std::make_tuple(1, "two_vertices"),
+    std::make_tuple(2, "chain_5"),         std::make_tuple(3, "star_6"),
+    std::make_tuple(4, "complete_4"),      std::make_tuple(5, "disconnected"),
+    std::make_tuple(6, "weighted"),        std::make_tuple(7, "random_sparse_10_15"),
+    std::make_tuple(8, "random_dense_8"),  std::make_tuple(9, "chain_20"),
+    std::make_tuple(10, "multiple_paths"), std::make_tuple(11, "zero_weight"),
+    std::make_tuple(12, "binary_tree_3"),  std::make_tuple(13, "grid_3x3")};
 
-const auto kTestTasksList =
-    std::tuple_cat(ppc::util::AddFuncTask<OlesnitskiyVDijkstraCrsMPI, InType>(kTestParam, PPC_SETTINGS_olesnitskiy_v_dijkstra_crs),
-                   ppc::util::AddFuncTask<OlesnitskiyVDijkstraCrsSEQ, InType>(kTestParam, PPC_SETTINGS_olesnitskiy_v_dijkstra_crs));
+const auto kTestTasksList = std::tuple_cat(
+    ppc::util::AddFuncTask<OlesnitskiyVDijkstraCrsMPI, InType>(kTestParam, PPC_SETTINGS_olesnitskiy_v_dijkstra_crs),
+    ppc::util::AddFuncTask<OlesnitskiyVDijkstraCrsSEQ, InType>(kTestParam, PPC_SETTINGS_olesnitskiy_v_dijkstra_crs));
 const auto kGtestValues = ppc::util::ExpandToValues(kTestTasksList);
 const auto kPerfTestName = OlesnitskiyVDijkstraCrsFuncTests::PrintFuncTestName<OlesnitskiyVDijkstraCrsFuncTests>;
 INSTANTIATE_TEST_SUITE_P(DijkstraCRSTests, OlesnitskiyVDijkstraCrsFuncTests, kGtestValues, kPerfTestName);

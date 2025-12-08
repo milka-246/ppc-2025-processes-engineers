@@ -8,11 +8,12 @@ class OlesnitskiyVDijkstraCrsMPI : public BaseTask {
     return ppc::task::TypeOfTask::kMPI;
   }
   explicit OlesnitskiyVDijkstraCrsMPI(const InType &in);
+
  private:
   bool ValidationImpl() override;
   bool PreProcessingImpl() override;
   bool RunImpl() override;
   bool PostProcessingImpl() override;
-  std::vector<int> dijkstraCRS_MPI(const GraphCRS& graph);
+  std::vector<int> dijkstraCRS_MPI(const GraphCRS &graph);
 };
 }  // namespace olesnitskiy_v_dijkstra_crs
