@@ -8,8 +8,8 @@
 
 namespace olesnitskiy_v_dijkstra_crs {
 
-using InType = std::tuple<int, std::vector<int>, std::vector<int>, std::vector<int>>;  // (source, offsets, edges, weights)
-using OutType = std::vector<int>;  // distances
+using InType = std::tuple<int, std::vector<int>, std::vector<int>, std::vector<int>>;
+using OutType = std::vector<int>;
 using TestType = std::tuple<int, std::string>;
 using BaseTask = ppc::task::Task<InType, OutType>;
 
