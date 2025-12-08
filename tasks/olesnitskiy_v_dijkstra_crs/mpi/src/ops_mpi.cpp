@@ -7,6 +7,7 @@
 #include <functional>
 #include <limits>
 #include <queue>
+#include <utility>
 #include <vector>
 
 #include "olesnitskiy_v_dijkstra_crs/common/include/common.hpp"
@@ -92,7 +93,7 @@ bool OlesnitskiyVDijkstraCrsMPI::RunImpl() {
   std::vector<int> counts(size);
   std::vector<int> displs(size);
   for (int idx = 0; idx < size; ++idx) {
-    counts[idx] = vertices / size + (idx < (vertices % size) ? 1 : 0);
+    counts[idx] = (vertices / size) + (idx < (vertices % size) ? 1 : 0);
     displs[idx] = (idx == 0) ? 0 : displs[idx - 1] + counts[idx - 1];
   }
 
@@ -103,12 +104,13 @@ bool OlesnitskiyVDijkstraCrsMPI::RunImpl() {
   std::vector<int> local_distances(local_vertices, std::numeric_limits<int>::max());
   std::vector<bool> local_visited(local_vertices, false);
 
-  if (source >= start_idx && source < end_idx) {
+  bool source_is_local = (source >= start_idx && source < end_idx);
+  if (source_is_local) {
     local_distances[source - start_idx] = 0;
   }
 
   std::priority_queue<std::pair<int, int>, std::vector<std::pair<int, int>>, std::greater<>> pq;
-  if (source >= start_idx && source < end_idx) {
+  if (source_is_local) {
     pq.emplace(0, source);
   }
 
@@ -137,7 +139,7 @@ bool OlesnitskiyVDijkstraCrsMPI::RunImpl() {
     struct DistVertexPair {
       int dist;
       int vertex;
-    } local_info = {local_best_dist, local_best_vertex}, global_info = {};
+    } local_info = {.dist = local_best_dist, .vertex = local_best_vertex}, global_info = {};
 
     MPI_Allreduce(&local_info, &global_info, 1, MPI_2INT, MPI_MINLOC, MPI_COMM_WORLD);
 
@@ -145,7 +147,8 @@ bool OlesnitskiyVDijkstraCrsMPI::RunImpl() {
       break;
     }
 
-    if (global_info.vertex >= start_idx && global_info.vertex < end_idx) {
+    bool global_vertex_is_local = (global_info.vertex >= start_idx && global_info.vertex < end_idx);
+    if (global_vertex_is_local) {
       int local_idx = global_info.vertex - start_idx;
       if (local_visited[local_idx]) {
         continue;
@@ -164,7 +167,7 @@ bool OlesnitskiyVDijkstraCrsMPI::RunImpl() {
 
         int owner = 0;
         for (int j = 0; j < size; ++j) {
-          if (neighbor >= displs[j] && neighbor < displs[j] + counts[j]) {
+          if (neighbor >= displs[j] && neighbor < (displs[j] + counts[j])) {
             owner = j;
             break;
           }

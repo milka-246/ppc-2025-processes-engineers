@@ -79,7 +79,7 @@ class OlesnitskiyVDijkstraCrsFuncTests : public ppc::util::BaseRunFuncTests<InTy
     if (output_data.empty()) {
       return true;
     }
-    if (std::cmp_not_equal(output_data.size(), static_cast<std::size_t>(expected_vertices_))) {
+    if (output_data.size() != static_cast<std::size_t>(expected_vertices_)) {
       return false;
     }
     if (output_data[expected_source_] != 0) {
@@ -242,7 +242,7 @@ class OlesnitskiyVDijkstraCrsFuncTests : public ppc::util::BaseRunFuncTests<InTy
       for (int j = 0; j < vertices && edge_idx < edges_count; ++j) {
         if (i != j && (i + j) % 3 == 0) {
           edges.push_back(j);
-          weights.push_back(1 + (i + j) % 5);
+          weights.push_back(1 + ((i + j) % 5));
           offsets[i + 1]++;
           edge_idx++;
         }
@@ -267,7 +267,7 @@ class OlesnitskiyVDijkstraCrsFuncTests : public ppc::util::BaseRunFuncTests<InTy
       for (int j = 0; j < vertices; ++j) {
         if (i != j) {
           edges.push_back(j);
-          weights.push_back(1 + (i + j) % 5);
+          weights.push_back(1 + ((i + j) % 5));
           offsets[i + 1]++;
         }
       }
