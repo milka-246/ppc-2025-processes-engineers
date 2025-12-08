@@ -48,6 +48,178 @@ bool OlesnitskiyVDijkstraCrsMPI::PreProcessingImpl() {
   return true;
 }
 
+namespace {
+struct Update {
+  int vertex;
+  int distance;
+};
+
+struct DistVertexPair {
+  int dist;
+  int vertex;
+};
+
+int FindOwner(int vertex, const std::vector<int> &displs, const std::vector<int> &counts, int size) {
+  for (int j = 0; j < size; ++j) {
+    if (vertex >= displs[j] && vertex < (displs[j] + counts[j])) {
+      return j;
+    }
+  }
+  return 0;
+}
+
+void ProcessLocalVertex(int vertex, int distance, const std::vector<int> &offsets, const std::vector<int> &edges,
+                        const std::vector<int> &weights, std::vector<int> &local_distances,
+                        std::vector<bool> &local_visited,
+                        std::priority_queue<std::pair<int, int>, std::vector<std::pair<int, int>>, std::greater<>> &pq,
+                        int start_idx, const std::vector<int> &displs, const std::vector<int> &counts, int rank,
+                        int size, std::vector<std::vector<Update>> &send_bufs) {
+  int start = offsets[vertex];
+  int end = offsets[vertex + 1];
+
+  for (int i = start; i < end; ++i) {
+    int neighbor = edges[i];
+    int weight = weights[i];
+    int new_dist = distance + weight;
+
+    int owner = FindOwner(neighbor, displs, counts, size);
+
+    if (owner == rank) {
+      int neighbor_local_idx = neighbor - start_idx;
+      if (!local_visited[neighbor_local_idx] && new_dist < local_distances[neighbor_local_idx]) {
+        local_distances[neighbor_local_idx] = new_dist;
+        pq.emplace(new_dist, neighbor);
+      }
+    } else {
+      send_bufs[owner].push_back(Update{.vertex = neighbor, .distance = new_dist});
+    }
+  }
+}
+
+void PrepareSendData(const std::vector<std::vector<Update>> &send_bufs, std::vector<int> &send_data) {
+  int idx = 0;
+  for (size_t i = 0; i < send_bufs.size(); ++i) {
+    for (const auto &update : send_bufs[i]) {
+      send_data[idx++] = update.vertex;
+      send_data[idx++] = update.distance;
+    }
+  }
+}
+
+void ProcessReceivedData(
+    const std::vector<int> &recv_data, int total_recv, int start_idx, int end_idx, std::vector<int> &local_distances,
+    std::vector<bool> &local_visited,
+    std::priority_queue<std::pair<int, int>, std::vector<std::pair<int, int>>, std::greater<>> &pq) {
+  for (int i = 0; i < total_recv * 2; i += 2) {
+    int neighbor = recv_data[i];
+    int new_dist = recv_data[i + 1];
+
+    bool is_local = (neighbor >= start_idx && neighbor < end_idx);
+    if (!is_local) {
+      continue;
+    }
+
+    int local_idx = neighbor - start_idx;
+    bool should_update = !local_visited[local_idx] && new_dist < local_distances[local_idx];
+    if (!should_update) {
+      continue;
+    }
+
+    local_distances[local_idx] = new_dist;
+    pq.emplace(new_dist, neighbor);
+  }
+}
+
+void CalculateDisplacements(const std::vector<int> &sizes, std::vector<int> &displs, int &total) {
+  total = 0;
+  for (size_t i = 0; i < sizes.size(); ++i) {
+    displs[i] = total;
+    total += sizes[i];
+  }
+}
+
+void PrepareByteArrays(const std::vector<int> &sizes, const std::vector<int> &displs, std::vector<int> &counts_bytes,
+                       std::vector<int> &displs_bytes) {
+  for (size_t i = 0; i < sizes.size(); ++i) {
+    counts_bytes[i] = sizes[i] * 2;
+    displs_bytes[i] = displs[i] * 2;
+  }
+}
+
+void ExchangeUpdates(std::vector<std::vector<Update>> &send_bufs, std::vector<int> &local_distances,
+                     std::vector<bool> &local_visited,
+                     std::priority_queue<std::pair<int, int>, std::vector<std::pair<int, int>>, std::greater<>> &pq,
+                     int start_idx, int end_idx) {
+  int size = static_cast<int>(send_bufs.size());
+  std::vector<int> send_sizes(size);
+  std::vector<int> recv_sizes(size);
+
+  for (int i = 0; i < size; ++i) {
+    send_sizes[i] = static_cast<int>(send_bufs[i].size());
+  }
+
+  MPI_Alltoall(send_sizes.data(), 1, MPI_INT, recv_sizes.data(), 1, MPI_INT, MPI_COMM_WORLD);
+
+  std::vector<int> send_displs(size);
+  std::vector<int> recv_displs(size);
+  int total_send = 0;
+  int total_recv = 0;
+
+  CalculateDisplacements(send_sizes, send_displs, total_send);
+  CalculateDisplacements(recv_sizes, recv_displs, total_recv);
+
+  const auto send_data_size = static_cast<std::size_t>(total_send) * 2;
+  const auto recv_data_size = static_cast<std::size_t>(total_recv) * 2;
+  std::vector<int> send_data(send_data_size);
+  std::vector<int> recv_data(recv_data_size);
+
+  PrepareSendData(send_bufs, send_data);
+
+  for (int i = 0; i < size; ++i) {
+    send_bufs[i].clear();
+  }
+
+  std::vector<int> send_counts_bytes(size);
+  std::vector<int> recv_counts_bytes(size);
+  std::vector<int> send_displs_bytes(size);
+  std::vector<int> recv_displs_bytes(size);
+
+  PrepareByteArrays(send_sizes, send_displs, send_counts_bytes, send_displs_bytes);
+  PrepareByteArrays(recv_sizes, recv_displs, recv_counts_bytes, recv_displs_bytes);
+
+  MPI_Alltoallv(send_data.data(), send_counts_bytes.data(), send_displs_bytes.data(), MPI_INT, recv_data.data(),
+                recv_counts_bytes.data(), recv_displs_bytes.data(), MPI_INT, MPI_COMM_WORLD);
+
+  ProcessReceivedData(recv_data, total_recv, start_idx, end_idx, local_distances, local_visited, pq);
+}
+
+void InitializeLocalData(
+    int vertices, int size, int rank, std::vector<int> &counts, std::vector<int> &displs, int &start_idx, int &end_idx,
+    int &local_vertices, int source, std::vector<int> &local_distances, std::vector<bool> &local_visited,
+    std::priority_queue<std::pair<int, int>, std::vector<std::pair<int, int>>, std::greater<>> &pq) {
+  counts.resize(size);
+  displs.resize(size);
+  for (int idx = 0; idx < size; ++idx) {
+    counts[idx] = (vertices / size) + (idx < (vertices % size) ? 1 : 0);
+    displs[idx] = (idx == 0) ? 0 : displs[idx - 1] + counts[idx - 1];
+  }
+
+  start_idx = displs[rank];
+  end_idx = start_idx + counts[rank];
+  local_vertices = counts[rank];
+
+  local_distances.resize(local_vertices, std::numeric_limits<int>::max());
+  local_visited.resize(local_vertices, false);
+
+  bool source_is_local = (source >= start_idx && source < end_idx);
+  if (source_is_local) {
+    local_distances[source - start_idx] = 0;
+    pq.emplace(0, source);
+  }
+}
+
+}  // namespace
+
 bool OlesnitskiyVDijkstraCrsMPI::RunImpl() {
   int rank = 0;
   int size = 0;
@@ -90,34 +262,17 @@ bool OlesnitskiyVDijkstraCrsMPI::RunImpl() {
   MPI_Bcast(edges.data(), total_edges, MPI_INT, 0, MPI_COMM_WORLD);
   MPI_Bcast(weights.data(), total_edges, MPI_INT, 0, MPI_COMM_WORLD);
 
-  std::vector<int> counts(size);
-  std::vector<int> displs(size);
-  for (int idx = 0; idx < size; ++idx) {
-    counts[idx] = (vertices / size) + (idx < (vertices % size) ? 1 : 0);
-    displs[idx] = (idx == 0) ? 0 : displs[idx - 1] + counts[idx - 1];
-  }
-
-  int start_idx = displs[rank];
-  int end_idx = start_idx + counts[rank];
-  int local_vertices = counts[rank];
-
-  std::vector<int> local_distances(local_vertices, std::numeric_limits<int>::max());
-  std::vector<bool> local_visited(local_vertices, false);
-
-  bool source_is_local = (source >= start_idx && source < end_idx);
-  if (source_is_local) {
-    local_distances[source - start_idx] = 0;
-  }
-
+  std::vector<int> counts;
+  std::vector<int> displs;
+  int start_idx = 0;
+  int end_idx = 0;
+  int local_vertices = 0;
+  std::vector<int> local_distances;
+  std::vector<bool> local_visited;
   std::priority_queue<std::pair<int, int>, std::vector<std::pair<int, int>>, std::greater<>> pq;
-  if (source_is_local) {
-    pq.emplace(0, source);
-  }
 
-  struct Update {
-    int vertex;
-    int distance;
-  };
+  InitializeLocalData(vertices, size, rank, counts, displs, start_idx, end_idx, local_vertices, source, local_distances,
+                      local_visited, pq);
 
   std::vector<std::vector<Update>> send_bufs(size);
   int active = 1;
@@ -127,19 +282,17 @@ bool OlesnitskiyVDijkstraCrsMPI::RunImpl() {
     int local_best_vertex = -1;
 
     if (!pq.empty()) {
-      while (!pq.empty() && local_visited[pq.top().second - start_idx]) {
+      local_best_dist = pq.top().first;
+      local_best_vertex = pq.top().second;
+      int local_idx = local_best_vertex - start_idx;
+      if (local_visited[local_idx]) {
         pq.pop();
-      }
-      if (!pq.empty()) {
-        local_best_dist = pq.top().first;
-        local_best_vertex = pq.top().second;
+        continue;
       }
     }
 
-    struct DistVertexPair {
-      int dist;
-      int vertex;
-    } local_info = {.dist = local_best_dist, .vertex = local_best_vertex}, global_info = {};
+    DistVertexPair local_info = {.dist = local_best_dist, .vertex = local_best_vertex};
+    DistVertexPair global_info = {};
 
     MPI_Allreduce(&local_info, &global_info, 1, MPI_2INT, MPI_MINLOC, MPI_COMM_WORLD);
 
@@ -154,101 +307,13 @@ bool OlesnitskiyVDijkstraCrsMPI::RunImpl() {
         continue;
       }
       local_visited[local_idx] = true;
-      if (!pq.empty() && pq.top().second == global_info.vertex) {
-        pq.pop();
-      }
+      pq.pop();
 
-      int vertex = global_info.vertex;
-      int start = offsets[vertex];
-      int end = offsets[vertex + 1];
-
-      for (int i = start; i < end; ++i) {
-        int neighbor = edges[i];
-        int weight = weights[i];
-        int new_dist = global_info.dist + weight;
-
-        int owner = 0;
-        for (int j = 0; j < size; ++j) {
-          if (neighbor >= displs[j] && neighbor < (displs[j] + counts[j])) {
-            owner = j;
-            break;
-          }
-        }
-
-        if (owner == rank) {
-          int neighbor_local_idx = neighbor - start_idx;
-          if (!local_visited[neighbor_local_idx] && new_dist < local_distances[neighbor_local_idx]) {
-            local_distances[neighbor_local_idx] = new_dist;
-            pq.emplace(new_dist, neighbor);
-          }
-        } else {
-          send_bufs[owner].push_back(Update{.vertex = neighbor, .distance = new_dist});
-        }
-      }
+      ProcessLocalVertex(global_info.vertex, global_info.dist, offsets, edges, weights, local_distances, local_visited,
+                         pq, start_idx, displs, counts, rank, size, send_bufs);
     }
 
-    std::vector<int> send_sizes(size);
-    std::vector<int> recv_sizes(size);
-
-    for (int i = 0; i < size; ++i) {
-      send_sizes[i] = static_cast<int>(send_bufs[i].size());
-    }
-
-    MPI_Alltoall(send_sizes.data(), 1, MPI_INT, recv_sizes.data(), 1, MPI_INT, MPI_COMM_WORLD);
-
-    std::vector<int> send_displs(size);
-    std::vector<int> recv_displs(size);
-    int total_send = 0;
-    int total_recv = 0;
-
-    for (int i = 0; i < size; ++i) {
-      send_displs[i] = total_send;
-      recv_displs[i] = total_recv;
-      total_send += send_sizes[i];
-      total_recv += recv_sizes[i];
-    }
-
-    const auto send_data_size = static_cast<std::size_t>(total_send) * 2;
-    const auto recv_data_size = static_cast<std::size_t>(total_recv) * 2;
-    std::vector<int> send_data(send_data_size);
-    std::vector<int> recv_data(recv_data_size);
-
-    int idx = 0;
-    for (int i = 0; i < size; ++i) {
-      for (const auto &update : send_bufs[i]) {
-        send_data[idx++] = update.vertex;
-        send_data[idx++] = update.distance;
-      }
-      send_bufs[i].clear();
-    }
-
-    std::vector<int> send_counts_bytes(size);
-    std::vector<int> recv_counts_bytes(size);
-    std::vector<int> send_displs_bytes(size);
-    std::vector<int> recv_displs_bytes(size);
-
-    for (int i = 0; i < size; ++i) {
-      send_counts_bytes[i] = send_sizes[i] * 2;
-      recv_counts_bytes[i] = recv_sizes[i] * 2;
-      send_displs_bytes[i] = send_displs[i] * 2;
-      recv_displs_bytes[i] = recv_displs[i] * 2;
-    }
-
-    MPI_Alltoallv(send_data.data(), send_counts_bytes.data(), send_displs_bytes.data(), MPI_INT, recv_data.data(),
-                  recv_counts_bytes.data(), recv_displs_bytes.data(), MPI_INT, MPI_COMM_WORLD);
-
-    for (int i = 0; i < total_recv * 2; i += 2) {
-      int neighbor = recv_data[i];
-      int new_dist = recv_data[i + 1];
-
-      if (neighbor >= start_idx && neighbor < end_idx) {
-        int local_idx = neighbor - start_idx;
-        if (!local_visited[local_idx] && new_dist < local_distances[local_idx]) {
-          local_distances[local_idx] = new_dist;
-          pq.emplace(new_dist, neighbor);
-        }
-      }
-    }
+    ExchangeUpdates(send_bufs, local_distances, local_visited, pq, start_idx, end_idx);
 
     int local_active = !pq.empty() ? 1 : 0;
     MPI_Allreduce(&local_active, &active, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
