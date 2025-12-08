@@ -1,6 +1,10 @@
 #pragma once
+
+#include <vector>
+
 #include "olesnitskiy_v_dijkstra_crs/common/include/common.hpp"
 #include "task/include/task.hpp"
+
 namespace olesnitskiy_v_dijkstra_crs {
 class OlesnitskiyVDijkstraCrsMPI : public BaseTask {
  public:
@@ -14,6 +18,6 @@ class OlesnitskiyVDijkstraCrsMPI : public BaseTask {
   bool PreProcessingImpl() override;
   bool RunImpl() override;
   bool PostProcessingImpl() override;
-  std::vector<int> dijkstraCRS_MPI(const GraphCRS &graph);
+  std::vector<int> DijkstraCrsMpi(const GraphCRS &graph);
 };
 }  // namespace olesnitskiy_v_dijkstra_crs

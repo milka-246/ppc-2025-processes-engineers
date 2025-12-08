@@ -1,23 +1,17 @@
 #include <gtest/gtest.h>
 
-#include <algorithm>
 #include <array>
-#include <cstddef>
-#include <cstdint>
 #include <iostream>
-#include <numeric>
+#include <limits>
 #include <random>
-#include <stdexcept>
 #include <string>
 #include <tuple>
-#include <utility>
 #include <vector>
 
 #include "olesnitskiy_v_dijkstra_crs/common/include/common.hpp"
 #include "olesnitskiy_v_dijkstra_crs/mpi/include/ops_mpi.hpp"
 #include "olesnitskiy_v_dijkstra_crs/seq/include/ops_seq.hpp"
 #include "util/include/func_test_util.hpp"
-#include "util/include/util.hpp"
 
 namespace olesnitskiy_v_dijkstra_crs {
 
@@ -31,52 +25,52 @@ class OlesnitskiyVDijkstraCrsFuncTests : public ppc::util::BaseRunFuncTests<InTy
   void SetUp() override {
     TestType params = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
     int test_type = std::get<0>(params);
-    std::string test_name = std::get<1>(params);
+    // Переменная test_name не используется, поэтому убрана
     switch (test_type) {
       case 0:
-        createSingleVertexGraph();
+        CreateSingleVertexGraph();
         break;
       case 1:
-        createTwoVerticesGraph();
+        CreateTwoVerticesGraph();
         break;
       case 2:
-        createChainGraph(5);
+        CreateChainGraph(5);
         break;
       case 3:
-        createStarGraph(6);
+        CreateStarGraph(6);
         break;
       case 4:
-        createCompleteGraph(4);
+        CreateCompleteGraph(4);
         break;
       case 5:
-        createDisconnectedGraph();
+        CreateDisconnectedGraph();
         break;
       case 6:
-        createGraphWithWeights();
+        CreateGraphWithWeights();
         break;
       case 7:
-        createRandomSparseGraph(10, 15);
+        CreateRandomSparseGraph(10, 15);
         break;
       case 8:
-        createRandomDenseGraph(8);
+        CreateRandomDenseGraph(8);
         break;
       case 9:
-        createChainGraph(20);
+        CreateChainGraph(20);
         break;
       case 10:
-        createMultiplePathsGraph();
+        CreateMultiplePathsGraph();
         break;
       case 11:
-        createZeroWeightGraph();
+        CreateZeroWeightGraph();
         break;
       case 12:
-        createBinaryTreeGraph(3);
+        CreateBinaryTreeGraph(3);
         break;
       case 13:
-        createGridGraph(3, 3);
+        CreateGridGraph(3, 3);
         break;
       default:
-        createChainGraph(5);
+        CreateChainGraph(5);
         break;
     }
   }
@@ -86,32 +80,32 @@ class OlesnitskiyVDijkstraCrsFuncTests : public ppc::util::BaseRunFuncTests<InTy
       return true;
     }
     if (static_cast<int>(output_data.size()) != expected_vertices_) {
-      std::cout << "ERROR: Wrong size: expected " << expected_vertices_ << ", got " << output_data.size() << std::endl;
+      std::cout << "ERROR: Wrong size: expected " << expected_vertices_ << ", got " << output_data.size() << '\n';
       return false;
     }
     if (output_data[expected_source_] != 0) {
-      std::cout << "ERROR: Source distance not 0: " << output_data[expected_source_] << std::endl;
+      std::cout << "ERROR: Source distance not 0: " << output_data[expected_source_] << '\n';
       return false;
     }
-    for (size_t i = 0; i < output_data.size(); ++i) {
+    for (std::size_t i = 0; i < output_data.size(); ++i) {
       int dist = output_data[i];
       if (dist < 0) {
-        std::cout << "ERROR: Negative distance at vertex " << i << ": " << dist << std::endl;
+        std::cout << "ERROR: Negative distance at vertex " << i << ": " << dist << '\n';
         return false;
       }
     }
     if (!expected_distances_.empty()) {
       bool all_match = true;
-      for (size_t i = 0; i < expected_distances_.size(); ++i) {
+      for (std::size_t i = 0; i < expected_distances_.size(); ++i) {
         int expected = expected_distances_[i];
         int actual = output_data[i];
         if (expected == std::numeric_limits<int>::max()) {
           if (actual != std::numeric_limits<int>::max()) {
-            std::cout << "ERROR at vertex " << i << ": expected INF, got " << actual << std::endl;
+            std::cout << "ERROR at vertex " << i << ": expected INF, got " << actual << '\n';
             all_match = false;
           }
         } else if (actual != expected) {
-          std::cout << "ERROR at vertex " << i << ": expected " << expected << ", got " << actual << std::endl;
+          std::cout << "ERROR at vertex " << i << ": expected " << expected << ", got " << actual << '\n';
           all_match = false;
         }
       }
@@ -132,7 +126,7 @@ class OlesnitskiyVDijkstraCrsFuncTests : public ppc::util::BaseRunFuncTests<InTy
             std::cout << d << " ";
           }
         }
-        std::cout << std::endl;
+        std::cout << '\n';
         return false;
       }
     }
@@ -150,7 +144,7 @@ class OlesnitskiyVDijkstraCrsFuncTests : public ppc::util::BaseRunFuncTests<InTy
   int expected_source_ = 0;
   std::vector<int> expected_distances_;
 
-  void createSingleVertexGraph() {
+  void CreateSingleVertexGraph() {
     std::vector<int> offsets = {0, 0};
     std::vector<int> edges;
     std::vector<int> weights;
@@ -160,7 +154,7 @@ class OlesnitskiyVDijkstraCrsFuncTests : public ppc::util::BaseRunFuncTests<InTy
     expected_distances_ = {0};
   }
 
-  void createTwoVerticesGraph() {
+  void CreateTwoVerticesGraph() {
     std::vector<int> offsets = {0, 1, 2};
     std::vector<int> edges = {1, 0};
     std::vector<int> weights = {5, 5};
@@ -170,7 +164,7 @@ class OlesnitskiyVDijkstraCrsFuncTests : public ppc::util::BaseRunFuncTests<InTy
     expected_distances_ = {0, 5};
   }
 
-  void createChainGraph(int n) {
+  void CreateChainGraph(int n) {
     std::vector<int> offsets(n + 1, 0);
     std::vector<int> edges;
     std::vector<int> weights;
@@ -196,7 +190,7 @@ class OlesnitskiyVDijkstraCrsFuncTests : public ppc::util::BaseRunFuncTests<InTy
     }
   }
 
-  void createStarGraph(int n) {
+  void CreateStarGraph(int n) {
     std::vector<int> offsets(n + 1, 0);
     std::vector<int> edges;
     std::vector<int> weights;
@@ -221,7 +215,7 @@ class OlesnitskiyVDijkstraCrsFuncTests : public ppc::util::BaseRunFuncTests<InTy
     }
   }
 
-  void createCompleteGraph(int n) {
+  void CreateCompleteGraph(int n) {
     std::vector<int> offsets(n + 1, 0);
     std::vector<int> edges;
     std::vector<int> weights;
@@ -244,7 +238,7 @@ class OlesnitskiyVDijkstraCrsFuncTests : public ppc::util::BaseRunFuncTests<InTy
     }
   }
 
-  void createDisconnectedGraph() {
+  void CreateDisconnectedGraph() {
     std::vector<int> offsets = {0, 2, 4, 5, 5, 6};
     std::vector<int> edges = {1, 2, 0, 2, 0, 1, 4, 3};
     std::vector<int> weights(edges.size(), 1);
@@ -254,7 +248,7 @@ class OlesnitskiyVDijkstraCrsFuncTests : public ppc::util::BaseRunFuncTests<InTy
     expected_distances_ = {0, 1, 1, std::numeric_limits<int>::max(), std::numeric_limits<int>::max()};
   }
 
-  void createGraphWithWeights() {
+  void CreateGraphWithWeights() {
     std::vector<int> offsets = {0, 2, 3, 4, 4};
     std::vector<int> edges = {1, 2, 2, 3, 2};
     std::vector<int> weights = {5, 2, 1, 3, 4};
@@ -264,8 +258,8 @@ class OlesnitskiyVDijkstraCrsFuncTests : public ppc::util::BaseRunFuncTests<InTy
     expected_distances_ = {0, 5, 2, 5};
   }
 
-  void createRandomSparseGraph(int vertices, int edges_count) {
-    std::mt19937 gen(42);
+  void CreateRandomSparseGraph(int vertices, int edges_count) {
+    std::mt19937 gen(std::random_device{}());
     std::uniform_int_distribution<> vertex_dist(0, vertices - 1);
     std::uniform_int_distribution<> weight_dist(1, 10);
     std::vector<int> offsets(vertices + 1, 0);
@@ -289,8 +283,8 @@ class OlesnitskiyVDijkstraCrsFuncTests : public ppc::util::BaseRunFuncTests<InTy
     expected_distances_.clear();
   }
 
-  void createRandomDenseGraph(int vertices) {
-    std::mt19937 gen(123);
+  void CreateRandomDenseGraph(int vertices) {
+    std::mt19937 gen(std::random_device{}());
     std::uniform_int_distribution<> weight_dist(1, 5);
     std::vector<int> offsets(vertices + 1, 0);
     std::vector<int> edges;
@@ -313,7 +307,7 @@ class OlesnitskiyVDijkstraCrsFuncTests : public ppc::util::BaseRunFuncTests<InTy
     expected_distances_.clear();
   }
 
-  void createMultiplePathsGraph() {
+  void CreateMultiplePathsGraph() {
     std::vector<int> offsets = {0, 2, 3, 4, 4};
     std::vector<int> edges = {1, 2, 3, 3, 1};
     std::vector<int> weights = {1, 1, 1, 1, 1};
@@ -323,7 +317,7 @@ class OlesnitskiyVDijkstraCrsFuncTests : public ppc::util::BaseRunFuncTests<InTy
     expected_distances_ = {0, 1, 1, 2};
   }
 
-  void createZeroWeightGraph() {
+  void CreateZeroWeightGraph() {
     std::vector<int> offsets = {0, 2, 4, 5, 5};
     std::vector<int> edges = {1, 2, 2, 3, 3, 2};
     std::vector<int> weights = {0, 1, 0, 2, 1, 0};
@@ -333,15 +327,15 @@ class OlesnitskiyVDijkstraCrsFuncTests : public ppc::util::BaseRunFuncTests<InTy
     expected_distances_ = {0, 0, 0, 1};
   }
 
-  void createBinaryTreeGraph(int levels) {
+  void CreateBinaryTreeGraph(int levels) {
     int vertices = (1 << levels) - 1;
     std::vector<int> offsets(vertices + 1, 0);
     std::vector<int> edges;
     std::vector<int> weights;
     std::vector<int> edge_counts(vertices, 0);
     for (int i = 0; i < vertices; ++i) {
-      int left = 2 * i + 1;
-      int right = 2 * i + 2;
+      int left = (2 * i) + 1;
+      int right = (2 * i) + 2;
       if (left < vertices) {
         edge_counts[i]++;
       }
@@ -357,8 +351,8 @@ class OlesnitskiyVDijkstraCrsFuncTests : public ppc::util::BaseRunFuncTests<InTy
       offsets[i + 1] = offsets[i] + edge_counts[i];
     }
     for (int i = 0; i < vertices; ++i) {
-      int left = 2 * i + 1;
-      int right = 2 * i + 2;
+      int left = (2 * i) + 1;
+      int right = (2 * i) + 2;
       if (left < vertices) {
         edges.push_back(left);
         weights.push_back(1);
@@ -388,22 +382,22 @@ class OlesnitskiyVDijkstraCrsFuncTests : public ppc::util::BaseRunFuncTests<InTy
     }
   }
 
-  void createGridGraph(int rows, int cols) {
+  void CreateGridGraph(int rows, int cols) {
     int vertices = rows * cols;
     std::vector<int> offsets(vertices + 1, 0);
-    for (int r = 0; r < rows; ++r) {
-      for (int c = 0; c < cols; ++c) {
-        int v = r * cols + c;
-        if (c + 1 < cols) {
+    for (int row_idx = 0; row_idx < rows; ++row_idx) {
+      for (int col_idx = 0; col_idx < cols; ++col_idx) {
+        int v = (row_idx * cols) + col_idx;
+        if (col_idx + 1 < cols) {
           offsets[v + 1]++;
         }
-        if (r + 1 < rows) {
+        if (row_idx + 1 < rows) {
           offsets[v + 1]++;
         }
-        if (c > 0) {
+        if (col_idx > 0) {
           offsets[v + 1]++;
         }
-        if (r > 0) {
+        if (row_idx > 0) {
           offsets[v + 1]++;
         }
       }
@@ -414,28 +408,28 @@ class OlesnitskiyVDijkstraCrsFuncTests : public ppc::util::BaseRunFuncTests<InTy
     std::vector<int> edges(offsets[vertices]);
     std::vector<int> weights(offsets[vertices]);
     std::vector<int> current_pos = offsets;
-    for (int r = 0; r < rows; ++r) {
-      for (int c = 0; c < cols; ++c) {
-        int v = r * cols + c;
-        if (c + 1 < cols) {
+    for (int row_idx = 0; row_idx < rows; ++row_idx) {
+      for (int col_idx = 0; col_idx < cols; ++col_idx) {
+        int v = (row_idx * cols) + col_idx;
+        if (col_idx + 1 < cols) {
           int neighbor = v + 1;
           edges[current_pos[v]] = neighbor;
           weights[current_pos[v]] = 1;
           current_pos[v]++;
         }
-        if (r + 1 < rows) {
+        if (row_idx + 1 < rows) {
           int neighbor = v + cols;
           edges[current_pos[v]] = neighbor;
           weights[current_pos[v]] = 1;
           current_pos[v]++;
         }
-        if (c > 0) {
+        if (col_idx > 0) {
           int neighbor = v - 1;
           edges[current_pos[v]] = neighbor;
           weights[current_pos[v]] = 1;
           current_pos[v]++;
         }
-        if (r > 0) {
+        if (row_idx > 0) {
           int neighbor = v - cols;
           edges[current_pos[v]] = neighbor;
           weights[current_pos[v]] = 1;
@@ -447,10 +441,10 @@ class OlesnitskiyVDijkstraCrsFuncTests : public ppc::util::BaseRunFuncTests<InTy
     expected_vertices_ = vertices;
     expected_source_ = 0;
     expected_distances_.resize(vertices);
-    for (int r = 0; r < rows; ++r) {
-      for (int c = 0; c < cols; ++c) {
-        int v = r * cols + c;
-        expected_distances_[v] = r + c;
+    for (int row_idx = 0; row_idx < rows; ++row_idx) {
+      for (int col_idx = 0; col_idx < cols; ++col_idx) {
+        int v = (row_idx * cols) + col_idx;
+        expected_distances_[v] = row_idx + col_idx;
       }
     }
   }

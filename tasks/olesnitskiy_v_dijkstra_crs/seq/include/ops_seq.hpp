@@ -1,6 +1,10 @@
 #pragma once
+
+#include <vector>
+
 #include "olesnitskiy_v_dijkstra_crs/common/include/common.hpp"
 #include "task/include/task.hpp"
+
 namespace olesnitskiy_v_dijkstra_crs {
 class OlesnitskiyVDijkstraCrsSEQ : public BaseTask {
  public:
@@ -14,7 +18,7 @@ class OlesnitskiyVDijkstraCrsSEQ : public BaseTask {
   bool PreProcessingImpl() override;
   bool RunImpl() override;
   bool PostProcessingImpl() override;
-  std::vector<int> dijkstraCRS(const GraphCRS &graph);
-  int findMinDistance(const std::vector<int> &distances, const std::vector<bool> &visited);
+  std::vector<int> DijkstraCrs(const GraphCRS &graph);
+  int FindMinDistance(const std::vector<int> &distances, const std::vector<bool> &visited);
 };
 }  // namespace olesnitskiy_v_dijkstra_crs

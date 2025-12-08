@@ -2,12 +2,12 @@
 
 #include <mpi.h>
 
+#include <algorithm>
 #include <limits>
 #include <queue>
 #include <vector>
 
 #include "olesnitskiy_v_dijkstra_crs/common/include/common.hpp"
-#include "util/include/util.hpp"
 
 namespace olesnitskiy_v_dijkstra_crs {
 
@@ -46,7 +46,8 @@ bool OlesnitskiyVDijkstraCrsMPI::PreProcessingImpl() {
 }
 
 bool OlesnitskiyVDijkstraCrsMPI::RunImpl() {
-  int rank, size;
+  int rank = 0;
+  int size = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
 
@@ -86,10 +87,11 @@ bool OlesnitskiyVDijkstraCrsMPI::RunImpl() {
   MPI_Bcast(edges.data(), total_edges, MPI_INT, 0, MPI_COMM_WORLD);
   MPI_Bcast(weights.data(), total_edges, MPI_INT, 0, MPI_COMM_WORLD);
 
-  std::vector<int> counts(size), displs(size);
-  for (int i = 0; i < size; ++i) {
-    counts[i] = vertices / size + (i < (vertices % size) ? 1 : 0);
-    displs[i] = (i == 0) ? 0 : displs[i - 1] + counts[i - 1];
+  std::vector<int> counts(size);
+  std::vector<int> displs(size);
+  for (int idx = 0; idx < size; ++idx) {
+    counts[idx] = vertices / size + (idx < (vertices % size) ? 1 : 0);
+    displs[idx] = (idx == 0) ? 0 : displs[idx - 1] + counts[idx - 1];
   }
 
   int start_idx = displs[rank];
@@ -111,9 +113,9 @@ bool OlesnitskiyVDijkstraCrsMPI::RunImpl() {
     }
   };
 
-  std::priority_queue<QueueItem, std::vector<QueueItem>, std::greater<QueueItem>> pq;
+  std::priority_queue<QueueItem, std::vector<QueueItem>, std::greater<>> pq;
   if (source >= start_idx && source < end_idx) {
-    pq.push({0, source});
+    pq.push(QueueItem{.distance = 0, .vertex = source});
   }
 
   struct Update {
@@ -125,7 +127,7 @@ bool OlesnitskiyVDijkstraCrsMPI::RunImpl() {
   int active = 1;
 
   while (active > 0) {
-    QueueItem local_best = {std::numeric_limits<int>::max(), -1};
+    QueueItem local_best = {.distance = std::numeric_limits<int>::max(), .vertex = -1};
 
     if (!pq.empty()) {
       local_best = pq.top();
@@ -136,10 +138,10 @@ bool OlesnitskiyVDijkstraCrsMPI::RunImpl() {
       }
     }
 
-    struct {
+    struct DistVertexPair {
       int dist;
       int vertex;
-    } local_info, global_info;
+    } local_info = {}, global_info = {};
 
     local_info.dist = local_best.distance;
     local_info.vertex = local_best.vertex;
@@ -179,10 +181,10 @@ bool OlesnitskiyVDijkstraCrsMPI::RunImpl() {
           int neighbor_local_idx = neighbor - start_idx;
           if (!local_visited[neighbor_local_idx] && new_dist < local_distances[neighbor_local_idx]) {
             local_distances[neighbor_local_idx] = new_dist;
-            pq.push({new_dist, neighbor});
+            pq.push(QueueItem{.distance = new_dist, .vertex = neighbor});
           }
         } else {
-          send_bufs[owner].push_back({neighbor, new_dist});
+          send_bufs[owner].push_back(Update{.vertex = neighbor, .distance = new_dist});
         }
       }
     }
@@ -196,8 +198,10 @@ bool OlesnitskiyVDijkstraCrsMPI::RunImpl() {
 
     MPI_Alltoall(send_sizes.data(), 1, MPI_INT, recv_sizes.data(), 1, MPI_INT, MPI_COMM_WORLD);
 
-    std::vector<int> send_displs(size), recv_displs(size);
-    int total_send = 0, total_recv = 0;
+    std::vector<int> send_displs(size);
+    std::vector<int> recv_displs(size);
+    int total_send = 0;
+    int total_recv = 0;
 
     for (int i = 0; i < size; ++i) {
       send_displs[i] = total_send;
@@ -206,8 +210,10 @@ bool OlesnitskiyVDijkstraCrsMPI::RunImpl() {
       total_recv += recv_sizes[i];
     }
 
-    std::vector<int> send_data(total_send * 2);
-    std::vector<int> recv_data(total_recv * 2);
+    const auto send_data_size = static_cast<std::size_t>(total_send) * 2;
+    const auto recv_data_size = static_cast<std::size_t>(total_recv) * 2;
+    std::vector<int> send_data(send_data_size);
+    std::vector<int> recv_data(recv_data_size);
 
     int idx = 0;
     for (int i = 0; i < size; ++i) {
@@ -218,8 +224,10 @@ bool OlesnitskiyVDijkstraCrsMPI::RunImpl() {
       send_bufs[i].clear();
     }
 
-    std::vector<int> send_counts_bytes(size), recv_counts_bytes(size);
-    std::vector<int> send_displs_bytes(size), recv_displs_bytes(size);
+    std::vector<int> send_counts_bytes(size);
+    std::vector<int> recv_counts_bytes(size);
+    std::vector<int> send_displs_bytes(size);
+    std::vector<int> recv_displs_bytes(size);
 
     for (int i = 0; i < size; ++i) {
       send_counts_bytes[i] = send_sizes[i] * 2;
@@ -239,7 +247,7 @@ bool OlesnitskiyVDijkstraCrsMPI::RunImpl() {
         int local_idx = neighbor - start_idx;
         if (!local_visited[local_idx] && new_dist < local_distances[local_idx]) {
           local_distances[local_idx] = new_dist;
-          pq.push({new_dist, neighbor});
+          pq.push(QueueItem{.distance = new_dist, .vertex = neighbor});
         }
       }
     }
@@ -250,7 +258,7 @@ bool OlesnitskiyVDijkstraCrsMPI::RunImpl() {
 
   if (rank == 0) {
     std::vector<int> global_distances(vertices, std::numeric_limits<int>::max());
-    std::copy(local_distances.begin(), local_distances.end(), global_distances.begin() + start_idx);
+    std::ranges::copy(local_distances.begin(), local_distances.end(), global_distances.begin() + start_idx);
 
     for (int src = 1; src < size; ++src) {
       MPI_Recv(global_distances.data() + displs[src], counts[src], MPI_INT, src, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);

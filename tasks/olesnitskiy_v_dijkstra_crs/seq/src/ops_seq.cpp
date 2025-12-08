@@ -6,7 +6,6 @@
 #include <vector>
 
 #include "olesnitskiy_v_dijkstra_crs/common/include/common.hpp"
-#include "util/include/util.hpp"
 
 namespace olesnitskiy_v_dijkstra_crs {
 
@@ -54,7 +53,7 @@ bool OlesnitskiyVDijkstraCrsSEQ::RunImpl() {
   distances[source] = 0;
 
   using DistVertex = std::pair<int, int>;
-  std::priority_queue<DistVertex, std::vector<DistVertex>, std::greater<DistVertex>> pq;
+  std::priority_queue<DistVertex, std::vector<DistVertex>, std::greater<>> pq;
   pq.emplace(0, source);
 
   while (!pq.empty()) {

@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 
+#include <limits>
+#include <tuple>
 #include <vector>
 
 #include "olesnitskiy_v_dijkstra_crs/common/include/common.hpp"
@@ -10,7 +12,7 @@
 namespace olesnitskiy_v_dijkstra_crs {
 class OlesnitskiyVDijkstraCrsPerfTest : public ppc::util::BaseRunPerfTests<InType, OutType> {
   const int kVertices_ = 1000000;
-  InType GenerateTestGraph() {
+  InType GenerateTestGraph() const {
     std::vector<int> offsets(kVertices_ + 1, 0);
     std::vector<int> edges;
     std::vector<int> weights;
@@ -33,7 +35,7 @@ class OlesnitskiyVDijkstraCrsPerfTest : public ppc::util::BaseRunPerfTests<InTyp
     return std::make_tuple(source, offsets, edges, weights);
   }
 
-  InType input_data_{};
+  InType input_data_;
 
   void SetUp() override {
     input_data_ = GenerateTestGraph();
@@ -43,7 +45,7 @@ class OlesnitskiyVDijkstraCrsPerfTest : public ppc::util::BaseRunPerfTests<InTyp
     if (output_data.empty()) {
       return true;
     }
-    if (output_data.size() > 0) {
+    if (!output_data.empty()) {
       if (output_data[0] != 0) {
         return false;
       }
