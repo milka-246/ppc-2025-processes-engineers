@@ -4,11 +4,9 @@
 
 #include <algorithm>
 #include <cstddef>
-#include <functional>
 #include <limits>
 #include <queue>
 #include <tuple>
-#include <utility>
 #include <vector>
 
 #include "olesnitskiy_v_dijkstra_crs/common/include/common.hpp"
@@ -91,8 +89,8 @@ void OlesnitskiyVDijkstraCrsMPI::ProcessLocalVertex(int vertex, int distance, co
 void OlesnitskiyVDijkstraCrsMPI::PrepareSendData(const std::vector<std::vector<Update>> &send_bufs,
                                                  std::vector<int> &send_data) {
   int idx = 0;
-  for (size_t i = 0; i < send_bufs.size(); ++i) {
-    for (const auto &update : send_bufs[i]) {
+  for (const auto &send_buf : send_bufs) {
+    for (const auto &update : send_buf) {
       send_data[idx++] = update.vertex;
       send_data[idx++] = update.distance;
     }
@@ -328,7 +326,7 @@ void OlesnitskiyVDijkstraCrsMPI::CollectResults(const GraphData &graph, const Di
                                                 int size) {
   if (rank == 0) {
     std::vector<int> global_distances(graph.vertices, std::numeric_limits<int>::max());
-    std::copy(ctx.local_distances.begin(), ctx.local_distances.end(), global_distances.begin() + ctx.start_idx);
+    std::ranges::copy(ctx.local_distances, global_distances.begin() + ctx.start_idx);
 
     for (int src = 1; src < size; ++src) {
       MPI_Recv(global_distances.data() + ctx.displs[src], ctx.counts[src], MPI_INT, src, 0, MPI_COMM_WORLD,
