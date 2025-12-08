@@ -1,5 +1,6 @@
 #include "olesnitskiy_v_dijkstra_crs/seq/include/ops_seq.hpp"
 
+#include <functional>
 #include <limits>
 #include <queue>
 #include <utility>

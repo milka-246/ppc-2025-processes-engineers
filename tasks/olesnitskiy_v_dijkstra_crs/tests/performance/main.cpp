@@ -12,7 +12,7 @@
 namespace olesnitskiy_v_dijkstra_crs {
 class OlesnitskiyVDijkstraCrsPerfTest : public ppc::util::BaseRunPerfTests<InType, OutType> {
   const int kVertices_ = 1000000;
-  InType GenerateTestGraph() const {
+  [[nodiscard]] InType GenerateTestGraph() const {
     std::vector<int> offsets(kVertices_ + 1, 0);
     std::vector<int> edges;
     std::vector<int> weights;

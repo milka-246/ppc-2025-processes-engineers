@@ -3,6 +3,8 @@
 #include <mpi.h>
 
 #include <algorithm>
+#include <cstddef>
+#include <functional>
 #include <limits>
 #include <queue>
 #include <vector>
@@ -105,17 +107,9 @@ bool OlesnitskiyVDijkstraCrsMPI::RunImpl() {
     local_distances[source - start_idx] = 0;
   }
 
-  struct QueueItem {
-    int distance;
-    int vertex;
-    bool operator>(const QueueItem &other) const {
-      return distance > other.distance;
-    }
-  };
-
-  std::priority_queue<QueueItem, std::vector<QueueItem>, std::greater<>> pq;
+  std::priority_queue<std::pair<int, int>, std::vector<std::pair<int, int>>, std::greater<>> pq;
   if (source >= start_idx && source < end_idx) {
-    pq.push(QueueItem{.distance = 0, .vertex = source});
+    pq.emplace(0, source);
   }
 
   struct Update {
@@ -127,11 +121,13 @@ bool OlesnitskiyVDijkstraCrsMPI::RunImpl() {
   int active = 1;
 
   while (active > 0) {
-    QueueItem local_best = {.distance = std::numeric_limits<int>::max(), .vertex = -1};
+    int local_best_dist = std::numeric_limits<int>::max();
+    int local_best_vertex = -1;
 
     if (!pq.empty()) {
-      local_best = pq.top();
-      int local_idx = local_best.vertex - start_idx;
+      local_best_dist = pq.top().first;
+      local_best_vertex = pq.top().second;
+      int local_idx = local_best_vertex - start_idx;
       if (local_visited[local_idx]) {
         pq.pop();
         continue;
@@ -141,10 +137,7 @@ bool OlesnitskiyVDijkstraCrsMPI::RunImpl() {
     struct DistVertexPair {
       int dist;
       int vertex;
-    } local_info = {}, global_info = {};
-
-    local_info.dist = local_best.distance;
-    local_info.vertex = local_best.vertex;
+    } local_info = {local_best_dist, local_best_vertex}, global_info = {};
 
     MPI_Allreduce(&local_info, &global_info, 1, MPI_2INT, MPI_MINLOC, MPI_COMM_WORLD);
 
@@ -181,7 +174,7 @@ bool OlesnitskiyVDijkstraCrsMPI::RunImpl() {
           int neighbor_local_idx = neighbor - start_idx;
           if (!local_visited[neighbor_local_idx] && new_dist < local_distances[neighbor_local_idx]) {
             local_distances[neighbor_local_idx] = new_dist;
-            pq.push(QueueItem{.distance = new_dist, .vertex = neighbor});
+            pq.emplace(new_dist, neighbor);
           }
         } else {
           send_bufs[owner].push_back(Update{.vertex = neighbor, .distance = new_dist});
@@ -247,7 +240,7 @@ bool OlesnitskiyVDijkstraCrsMPI::RunImpl() {
         int local_idx = neighbor - start_idx;
         if (!local_visited[local_idx] && new_dist < local_distances[local_idx]) {
           local_distances[local_idx] = new_dist;
-          pq.push(QueueItem{.distance = new_dist, .vertex = neighbor});
+          pq.emplace(new_dist, neighbor);
         }
       }
     }

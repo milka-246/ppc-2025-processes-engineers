@@ -1,9 +1,8 @@
 #include <gtest/gtest.h>
 
 #include <array>
-#include <iostream>
+#include <cstddef>
 #include <limits>
-#include <random>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -23,9 +22,10 @@ class OlesnitskiyVDijkstraCrsFuncTests : public ppc::util::BaseRunFuncTests<InTy
 
  protected:
   void SetUp() override {
-    TestType params = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
-    int test_type = std::get<0>(params);
-    // Переменная test_name не используется, поэтому убрана
+    const auto &param = GetParam();
+    const auto &test_params = std::get<2>(param);
+
+    int test_type = std::get<0>(test_params);
     switch (test_type) {
       case 0:
         CreateSingleVertexGraph();
@@ -49,10 +49,10 @@ class OlesnitskiyVDijkstraCrsFuncTests : public ppc::util::BaseRunFuncTests<InTy
         CreateGraphWithWeights();
         break;
       case 7:
-        CreateRandomSparseGraph(10, 15);
+        CreateSimpleSparseGraph(10, 15);
         break;
       case 8:
-        CreateRandomDenseGraph(8);
+        CreateSimpleDenseGraph(8);
         break;
       case 9:
         CreateChainGraph(20);
@@ -79,55 +79,29 @@ class OlesnitskiyVDijkstraCrsFuncTests : public ppc::util::BaseRunFuncTests<InTy
     if (output_data.empty()) {
       return true;
     }
-    if (static_cast<int>(output_data.size()) != expected_vertices_) {
-      std::cout << "ERROR: Wrong size: expected " << expected_vertices_ << ", got " << output_data.size() << '\n';
+    if (std::cmp_not_equal(output_data.size(), static_cast<std::size_t>(expected_vertices_))) {
       return false;
     }
     if (output_data[expected_source_] != 0) {
-      std::cout << "ERROR: Source distance not 0: " << output_data[expected_source_] << '\n';
       return false;
     }
     for (std::size_t i = 0; i < output_data.size(); ++i) {
       int dist = output_data[i];
       if (dist < 0) {
-        std::cout << "ERROR: Negative distance at vertex " << i << ": " << dist << '\n';
         return false;
       }
     }
     if (!expected_distances_.empty()) {
-      bool all_match = true;
       for (std::size_t i = 0; i < expected_distances_.size(); ++i) {
         int expected = expected_distances_[i];
         int actual = output_data[i];
         if (expected == std::numeric_limits<int>::max()) {
           if (actual != std::numeric_limits<int>::max()) {
-            std::cout << "ERROR at vertex " << i << ": expected INF, got " << actual << '\n';
-            all_match = false;
+            return false;
           }
         } else if (actual != expected) {
-          std::cout << "ERROR at vertex " << i << ": expected " << expected << ", got " << actual << '\n';
-          all_match = false;
+          return false;
         }
-      }
-      if (!all_match) {
-        std::cout << "Expected distances: ";
-        for (int d : expected_distances_) {
-          if (d == std::numeric_limits<int>::max()) {
-            std::cout << "INF ";
-          } else {
-            std::cout << d << " ";
-          }
-        }
-        std::cout << "\nActual distances: ";
-        for (int d : output_data) {
-          if (d == std::numeric_limits<int>::max()) {
-            std::cout << "INF ";
-          } else {
-            std::cout << d << " ";
-          }
-        }
-        std::cout << '\n';
-        return false;
       }
     }
 
@@ -258,22 +232,23 @@ class OlesnitskiyVDijkstraCrsFuncTests : public ppc::util::BaseRunFuncTests<InTy
     expected_distances_ = {0, 5, 2, 5};
   }
 
-  void CreateRandomSparseGraph(int vertices, int edges_count) {
-    std::mt19937 gen(std::random_device{}());
-    std::uniform_int_distribution<> vertex_dist(0, vertices - 1);
-    std::uniform_int_distribution<> weight_dist(1, 10);
+  void CreateSimpleSparseGraph(int vertices, int edges_count) {
     std::vector<int> offsets(vertices + 1, 0);
     std::vector<int> edges;
     std::vector<int> weights;
-    for (int i = 0; i < edges_count; ++i) {
-      int u = vertex_dist(gen);
-      int v = vertex_dist(gen);
-      if (u != v) {
-        edges.push_back(v);
-        weights.push_back(weight_dist(gen));
-        offsets[u + 1]++;
+
+    int edge_idx = 0;
+    for (int i = 0; i < vertices && edge_idx < edges_count; ++i) {
+      for (int j = 0; j < vertices && edge_idx < edges_count; ++j) {
+        if (i != j && (i + j) % 3 == 0) {
+          edges.push_back(j);
+          weights.push_back(1 + (i + j) % 5);
+          offsets[i + 1]++;
+          edge_idx++;
+        }
       }
     }
+
     for (int i = 0; i < vertices; ++i) {
       offsets[i + 1] += offsets[i];
     }
@@ -283,21 +258,21 @@ class OlesnitskiyVDijkstraCrsFuncTests : public ppc::util::BaseRunFuncTests<InTy
     expected_distances_.clear();
   }
 
-  void CreateRandomDenseGraph(int vertices) {
-    std::mt19937 gen(std::random_device{}());
-    std::uniform_int_distribution<> weight_dist(1, 5);
+  void CreateSimpleDenseGraph(int vertices) {
     std::vector<int> offsets(vertices + 1, 0);
     std::vector<int> edges;
     std::vector<int> weights;
+
     for (int i = 0; i < vertices; ++i) {
       for (int j = 0; j < vertices; ++j) {
-        if (i != j && (gen() % 10) < 7) {
+        if (i != j) {
           edges.push_back(j);
-          weights.push_back(weight_dist(gen));
+          weights.push_back(1 + (i + j) % 5);
           offsets[i + 1]++;
         }
       }
     }
+
     for (int i = 0; i < vertices; ++i) {
       offsets[i + 1] += offsets[i];
     }
@@ -459,8 +434,8 @@ const std::array<TestType, 14> kTestParam = {
     std::make_tuple(0, "single_vertex"),   std::make_tuple(1, "two_vertices"),
     std::make_tuple(2, "chain_5"),         std::make_tuple(3, "star_6"),
     std::make_tuple(4, "complete_4"),      std::make_tuple(5, "disconnected"),
-    std::make_tuple(6, "weighted"),        std::make_tuple(7, "random_sparse_10_15"),
-    std::make_tuple(8, "random_dense_8"),  std::make_tuple(9, "chain_20"),
+    std::make_tuple(6, "weighted"),        std::make_tuple(7, "simple_sparse_10_15"),
+    std::make_tuple(8, "simple_dense_8"),  std::make_tuple(9, "chain_20"),
     std::make_tuple(10, "multiple_paths"), std::make_tuple(11, "zero_weight"),
     std::make_tuple(12, "binary_tree_3"),  std::make_tuple(13, "grid_3x3")};
 
