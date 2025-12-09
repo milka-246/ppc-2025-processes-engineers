@@ -67,14 +67,13 @@ class OlesnitskiyVDijkstraCrsMPI : public BaseTask {
   static GraphData BroadcastGraphData(int rank, int /*size*/, const InType &input);
   static DistVertexPair FindGlobalBestVertex(const DistVertexPair &local_best);
   static bool ShouldStopAlgorithm(const DistVertexPair &global_best);
-
-  void ExchangeUpdates(DijkstraContext &ctx);
+  static void ExchangeUpdates(DijkstraContext &ctx);
   static DijkstraContext InitializeLocalData(int vertices, int size, int rank, int source);
   static bool FindLocalBestVertex(DijkstraContext &ctx, DistVertexPair &local_best);
-  void ProcessGlobalVertex(const DistVertexPair &global_best, const GraphData &graph, DijkstraContext &ctx, int rank,
-                           int size);
-  bool PerformDijkstraIteration(const GraphData &graph, DijkstraContext &ctx, int rank, int size);
-  void RunDijkstraAlgorithm(const GraphData &graph, DijkstraContext &ctx, int rank, int size);
+  static void ProcessGlobalVertex(const DistVertexPair &global_best, const GraphData &graph, DijkstraContext &ctx,
+                                  int rank, int size);
+  static bool PerformDijkstraIteration(const GraphData &graph, DijkstraContext &ctx, int rank, int size);
+  static void RunDijkstraAlgorithm(const GraphData &graph, DijkstraContext &ctx, int rank, int size);
   void CollectResults(const GraphData &graph, const DijkstraContext &ctx, int rank, int size);
 };
 }  // namespace olesnitskiy_v_dijkstra_crs
