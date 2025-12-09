@@ -54,21 +54,24 @@ class OlesnitskiyVDijkstraCrsMPI : public BaseTask {
     std::vector<std::vector<Update>> send_bufs;
   };
 
+  // Статические методы (могут быть static)
   static bool IsVertexLocal(int vertex, int start_idx, int end_idx);
   static int FindOwner(int vertex, const std::vector<int> &displs, const std::vector<int> &counts, int size);
-  void ProcessLocalVertex(int vertex, int distance, const std::vector<int> &offsets, const std::vector<int> &edges,
-                          const std::vector<int> &weights, DijkstraContext &ctx, int rank, int size);
   static void PrepareSendData(const std::vector<std::vector<Update>> &send_bufs, std::vector<int> &send_data);
-  void ProcessReceivedData(const std::vector<int> &recv_data, int total_recv, DijkstraContext &ctx);
   static void CalculateDisplacements(const std::vector<int> &sizes, std::vector<int> &displs, int &total);
   static void PrepareByteArrays(const std::vector<int> &sizes, const std::vector<int> &displs,
                                 std::vector<int> &counts_bytes, std::vector<int> &displs_bytes);
-  void ExchangeUpdates(DijkstraContext &ctx);
-  DijkstraContext InitializeLocalData(int vertices, int size, int rank, int source);
   static GraphData BroadcastGraphData(int rank, int /*size*/, const InType &input);
-  static bool FindLocalBestVertex(DijkstraContext &ctx, DistVertexPair &local_best);
   static DistVertexPair FindGlobalBestVertex(const DistVertexPair &local_best);
   static bool ShouldStopAlgorithm(const DistVertexPair &global_best);
+
+  // Нестатические методы
+  void ProcessLocalVertex(int vertex, int distance, const std::vector<int> &offsets, const std::vector<int> &edges,
+                          const std::vector<int> &weights, DijkstraContext &ctx, int rank, int size);
+  void ProcessReceivedData(const std::vector<int> &recv_data, int total_recv, DijkstraContext &ctx);
+  void ExchangeUpdates(DijkstraContext &ctx);
+  DijkstraContext InitializeLocalData(int vertices, int size, int rank, int source);
+  bool FindLocalBestVertex(DijkstraContext &ctx, DistVertexPair &local_best);
   void ProcessGlobalVertex(const DistVertexPair &global_best, const GraphData &graph, DijkstraContext &ctx, int rank,
                            int size);
   bool PerformDijkstraIteration(const GraphData &graph, DijkstraContext &ctx, int rank, int size);

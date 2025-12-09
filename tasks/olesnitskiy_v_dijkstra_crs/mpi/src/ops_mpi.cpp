@@ -315,6 +315,7 @@ bool OlesnitskiyVDijkstraCrsMPI::PerformDijkstraIteration(const GraphData &graph
 
 void OlesnitskiyVDijkstraCrsMPI::RunDijkstraAlgorithm(const GraphData &graph, DijkstraContext &ctx, int rank,
                                                       int size) {
+  ctx.active = 1;
   while (ctx.active > 0) {
     if (!PerformDijkstraIteration(graph, ctx, rank, size)) {
       break;
