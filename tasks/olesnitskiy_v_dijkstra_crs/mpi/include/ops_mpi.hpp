@@ -57,8 +57,8 @@ class OlesnitskiyVDijkstraCrsMPI : public BaseTask {
   static bool IsVertexLocal(int vertex, int start_idx, int end_idx);
   static int FindOwner(int vertex, const std::vector<int> &displs, const std::vector<int> &counts, int size);
   static void ProcessLocalVertex(int vertex, int distance, const std::vector<int> &offsets,
-                                 const std::vector<int> &edges, const std::vector<int> &weights,
-                                 DijkstraContext &ctx, int rank, int size);
+                                 const std::vector<int> &edges, const std::vector<int> &weights, DijkstraContext &ctx,
+                                 int rank, int size);
   static void ProcessReceivedData(const std::vector<int> &recv_data, int total_recv, DijkstraContext &ctx);
   static void PrepareSendData(const std::vector<std::vector<Update>> &send_bufs, std::vector<int> &send_data);
   static void CalculateDisplacements(const std::vector<int> &sizes, std::vector<int> &displs, int &total);
