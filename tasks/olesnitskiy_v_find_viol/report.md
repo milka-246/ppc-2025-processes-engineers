@@ -3,7 +3,7 @@
 
 -  Student: Олесницкий Владимир Тарасович, group 3823Б1ПР2
 -  Technology: SEQ | MPI
--  Variant: 1
+-  Variant: 6
 
 ## 1. Introduction
 
